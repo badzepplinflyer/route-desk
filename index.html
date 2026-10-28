@@ -176,6 +176,10 @@ td.cons{color:var(--accent)}
 .fgrid small{font:400 11px var(--f-body);letter-spacing:0;text-transform:none;color:var(--muted);min-height:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .fgrid input.icao-f{text-transform:uppercase;font-weight:600;font-size:16px}
 .fgrid .ac{top:56px}
+.fgrid label.chk,.rbar .chk{flex-direction:row;align-items:center;gap:8px;font:600 11px var(--f-body);letter-spacing:.04em;text-transform:none;color:var(--ink);cursor:pointer}
+.fgrid label.chk{align-self:end;padding-bottom:9px}
+.fgrid label.chk input,.rbar .chk input{width:16px;height:16px;margin:0;accent-color:var(--accent);flex:none}
+.fgrid input:disabled{opacity:.65}
 .subh{grid-column:1/-1;font:600 10px var(--f-body);letter-spacing:.12em;text-transform:uppercase;color:var(--ink);border-top:1px solid var(--line);padding-top:10px;margin-top:2px}
 .ffull{padding:0 12px 10px}
 .ffull textarea{resize:vertical;line-height:1.5;text-transform:uppercase}
@@ -274,6 +278,7 @@ tfoot td{font-weight:500;border-bottom:0;color:var(--muted)}
             <label for="fCall">Callsign<input id="fCall" placeholder="Auto" autocomplete="off" style="text-transform:uppercase"></label>
             <label for="fDate">Date<input id="fDate" type="date"></label>
             <label for="fEtd">Off-block (UTC)<input id="fEtd" type="time"></label>
+            <label class="chk" for="fLive"><input type="checkbox" id="fLive"> Live times</label>
           </div>
         </section>
         <section class="panel">
@@ -302,6 +307,7 @@ tfoot td{font-weight:500;border-bottom:0;color:var(--muted)}
           </div>
           <label class="ffull" for="fRoute">Route<textarea id="fRoute" rows="3" spellcheck="false" placeholder="SSTIK5.KAYEX BCE J60 ... BLAID2"></textarea></label>
           <div class="rbar">
+            <label class="chk" for="fProcs"><input type="checkbox" id="fProcs"> Use SIDs and STARs</label>
             <button type="button" class="btn primary" id="fFind">Find route</button>
             <button type="button" class="btn" id="fUse">Use typed route</button>
             <button type="button" class="btn" id="fDirect">Direct</button>
@@ -1338,7 +1344,7 @@ function nextHourUtc(){const d=new Date();d.setUTCMinutes(0,0,0);d.setUTCHours(d
 function profileFields(ac){const a=ACFT[ac]||ACFT.A20N;return {ac,tas:a[1],burn:a[2],crz:a[3],oew:a[4],mzfw:a[5],mtow:a[6],mlw:a[7],maxf:a[8],seats:a[9],taxi:a[10],taxiOut:a[11],res:a[12]};}
 function defaultBrief(ac){const p=profileFields(ac),d=nextHourUtc();
   return {airline:'',num:'',call:'',reg:'',date:d.toISOString().slice(0,10),etd:d.toISOString().slice(11,16),...p,
-    pax:Math.round(p.seats*0.85),paxWt:p.seats>20?210:190,cargo:0,wind:0,cont:p.seats>20?5:0,extra:0,altn:''};}
+    pax:Math.round(p.seats*0.85),paxWt:p.seats>20?210:190,cargo:0,wind:0,cont:p.seats>20?5:0,extra:0,altn:'',live:true,useProcs:true};}
 const BF=[['fAirline','airline'],['fNum','num'],['fCall','call'],['fDate','date'],['fEtd','etd'],['fReg','reg'],['fTas','tas',1],['fBurn','burn',1],['fCrz','crz',1],
   ['fOew','oew',1],['fMzfw','mzfw',1],['fMtow','mtow',1],['fMlw','mlw',1],['fMaxf','maxf',1],['fSeats','seats',1],['fPax','pax',1],['fPaxWt','paxWt',1],
   ['fCargo','cargo',1],['fWind','wind',1],['fCont','cont',1],['fRes','res',1],['fTaxi','taxi',1],['fExtra','extra',1]];
@@ -1350,6 +1356,11 @@ let persistT;const persistSoon=()=>{clearTimeout(persistT);persistT=setTimeout(p
 BF.forEach(([id,key,isNum])=>{const el=$(id);el.addEventListener(el.tagName==='SELECT'?'change':'input',()=>{if(!plan)return;
   const v=el.value;plan.brief[key]=isNum?(v===''?0:+v):(['airline','call','reg'].includes(key)?v.toUpperCase():v);
   if(['tas','burn','crz','wind'].includes(key)){syncPerf();render();}else renderOfp();persistSoon();});});
+$('fLive').addEventListener('change',e=>{if(!plan)return;plan.brief.live=e.target.checked;
+  if(!e.target.checked){const d=new Date();plan.brief.date=d.toISOString().slice(0,10);plan.brief.etd=d.toISOString().slice(11,16);}renderPlanner();persistSoon();});
+$('fProcs').addEventListener('change',e=>{if(!plan)return;plan.brief.useProcs=e.target.checked;persistSoon();
+  $('fRouteMsg').className='hint';$('fRouteMsg').textContent=e.target.checked?'Find route will start on a SID and end on a STAR where available.':'Find route will use airways only.';});
+setInterval(()=>{if(plan&&plan.brief&&plan.brief.live&&!$('planView').hidden){renderPlanner();}},30000);
 $('fAc').addEventListener('change',e=>{if(!plan)return;const b=plan.brief;Object.assign(b,profileFields(e.target.value));
   b.pax=Math.min(b.pax,b.seats);b.paxWt=b.seats>20?210:190;b.cont=b.seats>20?5:0;syncPerf();render();persistSoon();});
 // map-page performance inputs feed the briefing too
@@ -1363,7 +1374,7 @@ wireSearch('fArr','fArrAc',()=>plan?plan.dstId:'',setArr);
 wireSearch('fAltn','fAltnAc',()=>plan&&plan.brief?plan.brief.altn:'',code=>{plan.brief.altn=code.toUpperCase();renderOfp();persistSoon();});
 
 /* ---------- route database (FAA CIFP airways) ---------- */
-let NAV=null,navP=null,GRAPH=null,routeDirty=false;
+let NAV=null,navP=null,GRAPH=null,GRAPH_BY_ID=null,routeDirty=false;
 function loadNav(){if(!navP)navP=fetch('data/nav.json').then(r=>r.ok?r.json():null).then(d=>NAV=d).catch(()=>null);return navP;}
 const KIND={W:'Intersection',V:'VOR',N:'NDB',A:'Airport',U:'User'};
 function fixRef(r){const [id,k]=r.split('#'),i=+k||0,f=NAV.fixes[id][i];return {ident:id,i,lat:f[0],lon:f[1],kind:f[2]};}
@@ -1399,7 +1410,7 @@ async function parseRoute(text){
 function buildGraph(){const nodes=new Map(),add=r=>{let n=nodes.get(r);if(!n){const f=fixRef(r);n={r,ident:f.ident,lat:f.lat,lon:f.lon,kind:f.kind,e:[]};nodes.set(r,n);}return n;};
   for(const [name,segs] of Object.entries(NAV.airways)){const lv=NAV.levels[name];
     segs.forEach(seg=>{for(let i=1;i<seg.length;i++){const a=add(seg[i-1]),b=add(seg[i]),d=gcDist(a,b);a.e.push([b,d,name,lv]);b.e.push([a,d,name,lv]);}});}
-  GRAPH=[...nodes.values()];}
+  GRAPH=[...nodes.values()];GRAPH_BY_ID=new Map();GRAPH.forEach(n=>{const l=GRAPH_BY_ID.get(n.ident);if(l)l.push(n);else GRAPH_BY_ID.set(n.ident,[n]);});}
 function heapPush(h,x){h.push(x);let i=h.length-1;while(i>0){const p=(i-1)>>1;if(h[p][0]<=h[i][0])break;[h[p],h[i]]=[h[i],h[p]];i=p;}}
 function heapPop(h){const top=h[0],last=h.pop();if(h.length){h[0]=last;let i=0;for(;;){const l=2*i+1,r=l+1;let m=i;if(l<h.length&&h[l][0]<h[m][0])m=l;if(r<h.length&&h[r][0]<h[m][0])m=r;if(m===i)break;[h[m],h[i]]=[h[i],h[m]];i=m;}}return top;}
 async function findRoute(){
@@ -1410,29 +1421,46 @@ async function findRoute(){
   const A=da?{lat:da.lat,lon:da.lon}:plan.wps[0].pos,B=aa?{lat:aa.lat,lon:aa.lon}:plan.wps[plan.wps.length-1].pos,direct=gcDist(A,B);
   if(direct<40)return {route:[],note:'Short hop: flying direct.'};
   const near=(P)=>{for(const r of [30,60,120,200]){const c=GRAPH.filter(n=>n.e.some(e=>ok(e[3]))&&gcDist(P,n)<Math.min(r,direct*0.45));if(c.length)return c;}return [];};
-  const starts=near(A),ends=new Set(near(B));
-  if(!starts.length||!ends.size)return {route:[],note:'No airways nearby: flying direct.'};
+  const s=plan.setup,dp=getProcs(s.dep),ap=getProcs(s.arr),useProcs=b.useProcs!==false;
+  const lenOf=pts=>{let L=0;for(let i=1;i<pts.length;i++)L+=gcDist({lat:pts[i-1][0],lon:pts[i-1][1]},{lat:pts[i][0],lon:pts[i][1]});return L;};
+  const nodeAt=(ident,ll)=>(GRAPH_BY_ID.get(ident)||[]).find(n=>n.e.some(e=>ok(e[3]))&&gcDist(n,{lat:ll[0],lon:ll[1]})<3);
+  const fixAt=(legs,pd,fromEnd)=>{const L=fromEnd?[...legs].reverse():legs;for(const g of L){const f=g[0];if(f&&pd.fx[f]&&!/^RW\d/.test(f))return f;}return null;};
+  const startMap=new Map(),endMap=new Map();
+  if(useProcs&&dp)dp.sid.filter(p=>sidFits(p,plan.depRwy)).forEach(p=>{const rks=Object.keys(p.rw),rk=plan.depRwy?rks.find(k=>matchRw(k,plan.depRwy)):rks[0];
+    const base=[...(rk?p.rw[rk]:[]),...p.cm],trs=Object.keys(p.tr);
+    (trs.length?trs.map(t=>({tr:t,legs:[...base,...p.tr[t]]})):[{tr:'',legs:base}]).forEach(v=>{const pts=pathPts(v.legs,dp,A,null),id=fixAt(v.legs,dp,true);if(!id||pts.length<2)return;
+      const n=nodeAt(id,pts[pts.length-1]);if(!n)return;const c=lenOf(pts);if(c<(startMap.get(n)?.c??Infinity))startMap.set(n,{c,sid:p.id,tr:v.tr});});});
+  if(useProcs&&ap)ap.star.forEach(p=>{const rk=plan.dstRwy?Object.keys(p.rw).find(k=>matchRw(k,plan.dstRwy)):Object.keys(p.rw)[0];
+    const tail=[...p.cm,...(rk?p.rw[rk]:[])],trs=Object.keys(p.tr);
+    (trs.length?trs.map(t=>({tr:t,legs:[...p.tr[t],...tail]})):[{tr:'',legs:tail}]).forEach(v=>{const pts=pathPts(v.legs,ap,null,B),id=fixAt(v.legs,ap,false);if(!id||pts.length<2)return;
+      const n=nodeAt(id,pts[0]);if(!n)return;const c=lenOf(pts);if(c<(endMap.get(n)?.c??Infinity))endMap.set(n,{c,star:p.id,tr:v.tr});});});
+  if(!startMap.size)near(A).forEach(n=>startMap.set(n,{c:gcDist(A,n)*1.25}));
+  if(!endMap.size)near(B).forEach(n=>endMap.set(n,{c:gcDist(n,B)*1.25}));
+  if(!startMap.size||!endMap.size)return {route:[],note:'No airways nearby: flying direct.'};
   const g=new Map(),prev=new Map(),h=[],limit=direct*1.5+150;let best=null,bestCost=Infinity;
-  starts.forEach(n=>{const c=gcDist(A,n)*1.25;if(c<(g.get(n)??Infinity)){g.set(n,c);prev.set(n,null);heapPush(h,[c+gcDist(n,B),n,'']);}});
-  while(h.length){const [f,n,via]=heapPop(h);if(f>=bestCost)break;const gn=g.get(n);
-    if(ends.has(n)){const c=gn+gcDist(n,B)*1.25;if(c<bestCost){bestCost=c;best=n;}}
+  startMap.forEach((v,n)=>{if(v.c<(g.get(n)??Infinity)){g.set(n,v.c);prev.set(n,null);heapPush(h,[v.c+gcDist(n,B),n,'']);}});
+  while(h.length){const [f,n,via]=heapPop(h);if(f>=bestCost)break;const gn=g.get(n);if(f>gn+gcDist(n,B)+1e-6)continue;
+    if(endMap.has(n)){const c=gn+endMap.get(n).c;if(c<bestCost){bestCost=c;best=n;}}
     for(const [m,d,name,lv] of n.e){if(!ok(lv))continue;if(gcDist(A,m)+gcDist(m,B)>limit)continue;
       const c=gn+d+(via&&via!==name?6:0);if(c<(g.get(m)??Infinity)){g.set(m,c);prev.set(m,[n,name]);heapPush(h,[c+gcDist(m,B),m,name]);}}}
   if(!best)return {route:[],note:'No airway route found: flying direct.'};
-  const path=[];for(let n=best;n;){const p=prev.get(n);path.unshift({ident:n.ident,lat:n.lat,lon:n.lon,kind:n.kind,airway:p?p[1]:''});n=p?p[0]:null;}
-  // pick a SID and STAR whose transition lies on the route
-  const s=plan.setup,dp=getProcs(s.dep),ap=getProcs(s.arr),ids=path.map(p=>p.ident),res={route:path,sid:'',sidTr:'',star:'',starTr:''};
-  if(dp){let bi=1e9;dp.sid.filter(p=>sidFits(p,plan.depRwy)).forEach(p=>Object.keys(p.tr).forEach(t=>{const i=ids.indexOf(t);if(i>=0&&i<ids.length*0.5&&i<bi){bi=i;res.sid=p.id;res.sidTr=t;}}));}
-  if(ap){let bi=-1;ap.star.forEach(p=>Object.keys(p.tr).forEach(t=>{const i=ids.lastIndexOf(t);if(i>=ids.length*0.5&&i>bi){bi=i;res.star=p.id;res.starTr=t;}}));}
+  const path=[];let first=best;for(let n=best;n;){const p=prev.get(n);path.unshift({ident:n.ident,lat:n.lat,lon:n.lon,kind:n.kind,airway:p?p[1]:''});first=n;n=p?p[0]:null;}
+  const si=startMap.get(first)||{},ei=endMap.get(best)||{};
+  const res={route:path,sid:si.sid||'',sidTr:si.tr||'',star:ei.star||'',starTr:ei.tr||''};
+  // give the SID a runway it serves when none is picked yet (longest first)
+  if(res.sid&&!plan.depRwy&&da){const o=dp.sid.find(x=>x.id===res.sid),keys=Object.keys(o.rw);
+    const e=da.ends.filter(e=>!keys.length||keys.some(k=>matchRw(k,e.id))).sort((x,y)=>(y.len||0)-(x.len||0))[0];if(e)res.depRwy=e.id;}
+  if(useProcs&&dp&&dp.sid.length&&!res.sid)res.note='No SID connects to the airway network here, so the route starts from the airport.';
+  if(useProcs&&ap&&ap.star.length&&!res.star)res.note=(res.note?res.note+' ':'')+'No STAR connects here, so the route ends at the airport.';
   return res;}
 function applyRoute(res,label){
   const msg=$('fRouteMsg');
   if(res.err){msg.textContent=res.err;msg.className='hint bad';return;}
   touched();const s=plan.setup;plan.userRoute=res.route.map(toWp);plan.direct=false;
-  s.sid=res.sid||'';s.sidTr=res.sid?(res.sidTr||''):'';s.star=res.star||'';s.starTr=res.star?(res.starTr||''):'';s.appTr=undefined;
+  s.sid=res.sid||'';s.sidTr=res.sid?(res.sidTr||''):'';s.star=res.star||'';s.starTr=res.star?(res.starTr||''):'';s.appTr=undefined;if(res.depRwy)s.depRwy=res.depRwy;
   routeDirty=false;applySetup(true);
   const unk=res.unknown||[];msg.className=unk.length?'hint bad':'hint';
-  msg.textContent=unk.length?'Not recognized: '+unk.join(', '):(res.note||label+' · '+Math.round(plan.total)+' nm, '+plan.wps.length+' fixes');
+  msg.textContent=unk.length?'Not recognized: '+unk.join(', '):(label+' · '+Math.round(plan.total)+' nm, '+plan.wps.length+' fixes'+(res.note?'. '+res.note:''));
 }
 $('fRoute').addEventListener('input',()=>{routeDirty=true;});
 $('fUse').onclick=async()=>{$('fRouteMsg').textContent='Reading route…';$('fRouteMsg').className='hint';applyRoute(await parseRoute($('fRoute').value),'Route applied');};
@@ -1450,7 +1478,7 @@ function ofpCalc(){const b=plan.brief,dist=plan.total,gs=Math.max(40,(+b.tas||0)
   if(alt){altD=gcDist(dst,{lat:alt.lat,lon:alt.lon});altT=altD/Math.max(60,b.tas*0.8)+0.2;altF=b.burn*1.05*altT;}
   const res=b.burn*0.85*(+b.res||0)/60,taxi=+b.taxi||0,extra=+b.extra||0,block=taxi+trip+cont+altF+res+extra;
   const payload=(+b.pax||0)*(+b.paxWt||0)+(+b.cargo||0),zfw=(+b.oew||0)+payload,tow=zfw+block-taxi,lw=tow-trip;
-  const off=new Date(`${b.date||new Date().toISOString().slice(0,10)}T${b.etd||'12:00'}:00Z`),tkof=new Date(+off+(+b.taxiOut||10)*60000),
+  const off=b.live?new Date(Math.ceil(Date.now()/60000)*60000):new Date(`${b.date||new Date().toISOString().slice(0,10)}T${b.etd||'12:00'}:00Z`),tkof=new Date(+off+(+b.taxiOut||10)*60000),
     land=new Date(+tkof+ete*3600000),onb=new Date(+land+6*60000);
   return {gs,ete,trip,cont,alt,altD,altT,altF,res,taxi,extra,block,payload,zfw,tow,lw,off,tkof,land,onb,endur:(block-taxi)/Math.max(1,b.burn)};}
 const wxCache={};let wxKey='';
@@ -1484,7 +1512,7 @@ function renderOfp(){
       <div><span>Ground speed</span>${fmtN(o.gs)} kt</div><div><span>Alternate</span>${esc(b.altn||'None')}</div></div></div>
     <div class="sec"><h4>Route</h4><div class="rt">${esc(plan.depId)} ${esc(routeString().split(' ').slice(1,-1).join(' '))} ${esc(plan.dstId)}</div>
       ${procs.length?`<div class="sub" style="margin-top:4px">${esc(procs.join(' · '))}</div>`:''}</div>
-    <div class="sec"><h4>Times (UTC)</h4><table class="ot"><tr><th>Out</th><th>Off</th><th>On</th><th>In</th></tr>
+    <div class="sec"><h4>Times (UTC)${b.live?' · live':''}</h4><table class="ot"><tr><th>Out</th><th>Off</th><th>On</th><th>In</th></tr>
       <tr><td>${utc(o.off)}</td><td>${utc(o.tkof)}</td><td>${utc(o.land)}</td><td>${utc(o.onb)}</td></tr></table></div>
     <div class="sec"><h4>Fuel (lb)</h4><table class="ot"><tr><th></th><th>Fuel</th><th>Time</th></tr>
       ${row('Trip',o.trip,o.ete)}${row('Contingency '+(b.cont||0)+'%',o.cont,o.cont/b.burn)}
@@ -1500,7 +1528,9 @@ function renderOfp(){
 }
 function renderPlanner(){
   if(!plan||!plan.brief)return;const b=plan.brief,act=document.activeElement;
+  if(b.live){const now=new Date();b.date=now.toISOString().slice(0,10);b.etd=now.toISOString().slice(11,16);}
   BF.forEach(([id,key])=>{const el=$(id);if(el!==act)el.value=b[key]??'';});
+  $('fLive').checked=!!b.live;$('fDate').disabled=!!b.live;$('fEtd').disabled=!!b.live;$('fProcs').checked=b.useProcs!==false;
   if($('fAc')!==act)$('fAc').value=b.ac;
   if($('fDep')!==act)$('fDep').value=plan.depId;if($('fArr')!==act)$('fArr').value=plan.dstId;if($('fAltn')!==act)$('fAltn').value=b.altn||'';
   $('fDepName').textContent=plan.depName||'';$('fArrName').textContent=plan.dstName||'';const al=aptByCode(b.altn);$('fAltnName').textContent=al?al.name:'';
