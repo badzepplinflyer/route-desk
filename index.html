@@ -160,6 +160,48 @@ td.cons{color:var(--accent)}
 .pv:hover{border-color:var(--accent)}
 .pv:disabled{opacity:.45;cursor:default}
 .pv:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.tabs{display:inline-flex;border:1px solid var(--line);border-radius:7px;overflow:hidden;background:var(--panel)}
+.tab{border:0;background:transparent;color:var(--muted);font:600 12px var(--f-body);letter-spacing:.09em;text-transform:uppercase;padding:8px 18px;cursor:pointer}
+.tab.on{background:var(--ink);color:var(--panel)}
+.tab:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.planner .pcols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,560px);gap:14px;align-items:start}
+@media (max-width:1100px){.planner .pcols{grid-template-columns:minmax(0,1fr)}}
+.pform{display:flex;flex-direction:column;gap:14px;min-width:0}
+.fgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px 12px;padding:12px}
+.fgrid label,.ffull{display:flex;flex-direction:column;gap:4px;font:600 10px var(--f-body);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);position:relative;min-width:0}
+.fgrid input,.fgrid select,.ffull textarea{font:500 14px var(--f-mono);font-variant-numeric:tabular-nums;padding:7px 8px;border:1px solid var(--line);border-radius:5px;background:var(--bg);color:var(--ink);width:100%;min-width:0;letter-spacing:0}
+.fgrid input:focus-visible,.fgrid select:focus-visible,.ffull textarea:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.fgrid .w2{grid-column:span 2}
+@media (max-width:420px){.fgrid .w2{grid-column:span 1}}
+.fgrid small{font:400 11px var(--f-body);letter-spacing:0;text-transform:none;color:var(--muted);min-height:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fgrid input.icao-f{text-transform:uppercase;font-weight:600;font-size:16px}
+.fgrid .ac{top:56px}
+.subh{grid-column:1/-1;font:600 10px var(--f-body);letter-spacing:.12em;text-transform:uppercase;color:var(--ink);border-top:1px solid var(--line);padding-top:10px;margin-top:2px}
+.ffull{padding:0 12px 10px}
+.ffull textarea{resize:vertical;line-height:1.5;text-transform:uppercase}
+.rbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:0 12px 12px}
+.rbar .hint{font:400 11.5px var(--f-body);color:var(--muted)}
+.rbar .hint.bad{color:var(--bad)}
+.ofp{position:sticky;top:max(12px,env(safe-area-inset-top,0px))}
+.ofp .doc{padding:14px 16px 4px;font:400 12.5px/1.55 var(--f-mono);font-variant-numeric:tabular-nums;max-height:calc(100vh - 140px);overflow-y:auto}
+.ofp .doc h3{font:700 26px var(--f-display);letter-spacing:.05em;text-transform:uppercase;margin:0;line-height:1.1}
+.ofp .doc .sub{color:var(--muted);font-size:12px}
+.ofp .sec{border-top:1px dashed var(--line);padding:10px 0;margin-top:10px}
+.ofp .sec h4{margin:0 0 6px;font:600 10px var(--f-body);letter-spacing:.12em;text-transform:uppercase;color:var(--muted);display:flex;justify-content:space-between;gap:8px}
+.ofp .sec h4 button{font:600 10px var(--f-body);letter-spacing:.08em;text-transform:uppercase;border:0;background:none;color:var(--accent);cursor:pointer;padding:0}
+.ot{width:100%;border-collapse:collapse}
+.ot th{position:static;background:none;padding:2px 6px;font:600 9.5px var(--f-body);letter-spacing:.1em;border:0}
+.ot td{padding:2px 6px;border:0;text-align:right;white-space:nowrap}
+.ot td:first-child,.ot th:first-child{text-align:left;padding-left:0}
+.ot tr.tot td{border-top:1px solid var(--line);font-weight:600;padding-top:4px}
+.ot .bad{color:var(--bad);font-weight:600}
+.kv{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:4px 14px}
+.kv div span{display:block;font:600 9.5px var(--f-body);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.rt{word-break:break-word}
+.wx{white-space:pre-wrap;word-break:break-word;font-size:11.5px;background:var(--bg);border:1px solid var(--line);border-radius:5px;padding:7px 8px;margin:4px 0 8px}
+.wx b{color:var(--accent)}
+.warnl{color:var(--bad);font-weight:600;margin:2px 0}
+.ofpbar{display:flex;gap:8px;flex-wrap:wrap;padding:12px 16px;border-top:1px solid var(--line)}
 .appinfo{padding:8px 12px;border-bottom:1px solid var(--line);font:400 11.5px var(--f-mono);color:var(--muted);line-height:1.5}
 .appinfo b{color:var(--route);font-weight:600}
 .appinfo:empty{display:none}
@@ -207,6 +249,10 @@ tfoot td{font-weight:500;border-bottom:0;color:var(--muted)}
       <div class="plan-title" id="planTitle">—</div>
       <span class="badge" id="sampleBadge" hidden>Sample plan</span>
     </div>
+    <div class="tabs" role="tablist" aria-label="View">
+      <button type="button" class="tab" id="tabPlan" role="tab">Plan</button>
+      <button type="button" class="tab" id="tabMap" role="tab">Map</button>
+    </div>
     <div class="actions">
       <input type="file" id="file" accept=".pln,.xml,application/xml,text/xml">
       <label class="btn primary" for="file" tabindex="0" id="importBtn">Import .pln</label>
@@ -217,7 +263,77 @@ tfoot td{font-weight:500;border-bottom:0;color:var(--muted)}
 
   <div class="recents" id="recents" hidden><span class="lbl">Recent</span></div>
 
-  <div class="grid">
+  <section class="planner" id="planView" hidden>
+    <div class="pcols">
+      <div class="pform">
+        <section class="panel">
+          <div class="ph"><h2>Flight</h2></div>
+          <div class="fgrid">
+            <label for="fAirline">Airline<input id="fAirline" maxlength="3" placeholder="DAL" autocomplete="off" style="text-transform:uppercase"></label>
+            <label for="fNum">Flight number<input id="fNum" maxlength="5" placeholder="1234" autocomplete="off"></label>
+            <label for="fCall">Callsign<input id="fCall" placeholder="Auto" autocomplete="off" style="text-transform:uppercase"></label>
+            <label for="fDate">Date<input id="fDate" type="date"></label>
+            <label for="fEtd">Off-block (UTC)<input id="fEtd" type="time"></label>
+          </div>
+        </section>
+        <section class="panel">
+          <div class="ph"><h2>Aircraft</h2></div>
+          <div class="fgrid">
+            <label class="w2" for="fAc">Type<select id="fAc"></select></label>
+            <label for="fReg">Registration<input id="fReg" placeholder="N123AB" autocomplete="off" style="text-transform:uppercase"></label>
+            <label for="fTas">Cruise TAS kt<input id="fTas" type="number" min="60" max="650" step="5"></label>
+            <label for="fBurn">Cruise burn lb/hr<input id="fBurn" type="number" min="5" max="40000" step="10"></label>
+            <label for="fCrz">Cruise altitude ft<input id="fCrz" type="number" min="1000" max="51000" step="500"></label>
+            <div class="subh">Limits</div>
+            <label for="fOew">Empty weight lb<input id="fOew" type="number" step="10"></label>
+            <label for="fMzfw">Max zero fuel lb<input id="fMzfw" type="number" step="10"></label>
+            <label for="fMtow">Max takeoff lb<input id="fMtow" type="number" step="10"></label>
+            <label for="fMlw">Max landing lb<input id="fMlw" type="number" step="10"></label>
+            <label for="fMaxf">Fuel capacity lb<input id="fMaxf" type="number" step="10"></label>
+            <label for="fSeats">Seats<input id="fSeats" type="number" min="0" step="1"></label>
+          </div>
+        </section>
+        <section class="panel">
+          <div class="ph"><h2>Airports and route</h2><span class="hint">US airways and procedures from FAA CIFP</span></div>
+          <div class="fgrid">
+            <label for="fDep">Departure<input id="fDep" class="icao-f" autocomplete="off" spellcheck="false" placeholder="ICAO"><div class="ac" id="fDepAc" hidden></div><small id="fDepName"></small></label>
+            <label for="fArr">Arrival<input id="fArr" class="icao-f" autocomplete="off" spellcheck="false" placeholder="ICAO"><div class="ac" id="fArrAc" hidden></div><small id="fArrName"></small></label>
+            <label for="fAltn">Alternate<input id="fAltn" class="icao-f" autocomplete="off" spellcheck="false" placeholder="ICAO"><div class="ac" id="fAltnAc" hidden></div><small id="fAltnName"></small></label>
+          </div>
+          <label class="ffull" for="fRoute">Route<textarea id="fRoute" rows="3" spellcheck="false" placeholder="SSTIK5.KAYEX BCE J60 ... BLAID2"></textarea></label>
+          <div class="rbar">
+            <button type="button" class="btn primary" id="fFind">Find route</button>
+            <button type="button" class="btn" id="fUse">Use typed route</button>
+            <button type="button" class="btn" id="fDirect">Direct</button>
+            <span class="hint" id="fRouteMsg">Type a route, or let Find route build one along airways.</span>
+          </div>
+        </section>
+        <section class="panel">
+          <div class="ph"><h2>Payload and fuel</h2></div>
+          <div class="fgrid">
+            <label for="fPax">Passengers<input id="fPax" type="number" min="0" step="1"></label>
+            <label for="fPaxWt">Weight per pax lb<input id="fPaxWt" type="number" min="0" step="5" title="Including bags"></label>
+            <label for="fCargo">Cargo lb<input id="fCargo" type="number" min="0" step="50"></label>
+            <label for="fWind">Avg wind kt<input id="fWind" type="number" step="5" title="Positive is a tailwind, negative a headwind"></label>
+            <label for="fCont">Contingency<select id="fCont"><option value="0">None</option><option value="3">3% of trip</option><option value="5">5% of trip</option><option value="10">10% of trip</option></select></label>
+            <label for="fRes">Final reserve<select id="fRes"><option value="30">30 min</option><option value="45">45 min</option><option value="60">60 min</option></select></label>
+            <label for="fTaxi">Taxi fuel lb<input id="fTaxi" type="number" min="0" step="10"></label>
+            <label for="fExtra">Extra fuel lb<input id="fExtra" type="number" min="0" step="50"></label>
+          </div>
+        </section>
+      </div>
+      <aside class="panel ofp">
+        <div class="ph"><h2>Briefing</h2><span class="hint" id="ofpHint"></span></div>
+        <div class="doc" id="ofp"></div>
+        <div class="ofpbar">
+          <button type="button" class="btn primary" id="toMap">Open map</button>
+          <button type="button" class="btn" id="exportPln">Export .pln for MSFS</button>
+        </div>
+      </aside>
+    </div>
+  </section>
+
+  <div class="grid" id="mapView">
     <div class="col">
       <section class="panel">
         <div class="ph">
@@ -491,6 +607,7 @@ function render(){
   $('routeStr').textContent=routeString();
   $('tDist').textContent=Math.round(plan.total);$('tEte').textContent=fmtEte(ete);
   if(terrain)applyTerrain();else{renderLog();drawProf();}
+  renderPlanner();
 }
 function renderLog(){
   const gs=+$('gs').value||1;
@@ -570,7 +687,7 @@ function drawRoute(fit=true){
     const m=L.marker([p.pos.lat,p.pos.lon],{keyboard:false,title:p.ident,riseOnHover:true,
       icon:L.divIcon({className:'',iconSize:null,html:`<div class="wpt ${t==='APT'?'apt':''}${i===selected?' sel':''}">${SYM[t]}<span>${esc(p.ident)}</span></div>`})}).addTo(routeLayer);
     m.on('click',()=>select(i===selected?-1:i,true));markers.push(m);});
-  if(fit)map.fitBounds(L.latLngBounds(pts),{padding:[40,40]});
+  if(fit){const bb=L.latLngBounds(pts);if($('mapView').hidden)pendingFit=bb;else map.fitBounds(bb,{padding:[40,40]});}
   updateLegLabels();
 }
 function updateLegLabels(){
@@ -756,24 +873,29 @@ $('log').addEventListener('keydown',e=>{if(e.key==='Enter')e.target.closest('tr'
 const STORE='routedesk.recents.v1';
 function getRecents(){try{return JSON.parse(localStorage.getItem(STORE)||'[]');}catch(e){return [];}}
 function persist(){if(!plan||plan.sample)return;try{let r=getRecents().filter(x=>x.key!==plan._key);
-  r.unshift({key:plan._key,label:plan.setup.dep+'–'+plan.setup.arr,xml:plan.xml||null,setup:{...plan.setup},direct:plan.direct,cruise:+$('crz').value||null});
+  r.unshift({key:plan._key,label:plan.setup.dep+'–'+plan.setup.arr,xml:plan.xml||null,setup:{...plan.setup},direct:plan.direct,cruise:+$('crz').value||null,brief:plan.brief,userRoute:plan.userRoute||null});
   localStorage.setItem(STORE,JSON.stringify(r.slice(0,8)));}catch(e){}drawRecents();}
 function drawRecents(){const r=getRecents(),el=$('recents');el.querySelectorAll('.chip').forEach(n=>n.remove());el.hidden=!r.length;
   r.forEach(x=>{const b=document.createElement('button');b.type='button';b.className='chip'+(plan&&plan._key===x.key?' on':'');b.textContent=x.label;
     b.onclick=()=>x.xml?load(x.xml,{entry:x}):loadScratch(x);el.appendChild(b);});}
 function defaultSetup(src){return {dep:src.depId,depRwy:src.depRwy||'',arr:src.dstId,arrRwy:src.dstRwy||'',app:src.wps.some(p=>p.app)?'FILE':'NONE'};}
 function load(xml,{sample=false,entry=null}={}){
+  const prevBrief=plan&&plan.brief?{...plan.brief}:null;
   let src;try{src=parsePln(xml);}catch(err){toast(err.message,true);return;}
   plan={src,xml:sample?null:xml,sample,_key:entry?.key||(src.depId+src.dstId+src.wps.length),type:src.type,cruise:src.cruise,direct:false,setup:defaultSetup(src)};
   if(entry&&entry.setup){Object.assign(plan.setup,entry.setup);plan.direct=!!entry.direct;}
-  const crz=entry?.cruise||src.cruise;if(crz){$('crz').value=crz;$('alertAlt').value=crz;alertLayer.redraw();}
+  plan.userRoute=entry?.userRoute||null;
+  plan.brief=entry?.brief?{...defaultBrief(entry.brief.ac),...entry.brief}:{...(prevBrief||defaultBrief(sample?'B350':'A20N')),altn:''};
+  if(!entry?.brief&&src.cruise)plan.brief.crz=src.cruise;
+  syncPerf();$('alertAlt').value=plan.brief.crz;alertLayer.redraw();routeDirty=false;
   $('sampleBadge').hidden=!sample;
   if(applySetup(true)&&!sample&&!entry)toast('Loaded '+src.depId+' to '+src.dstId+' · '+src.wps.length+' fixes');
 }
 async function loadScratch(entry){
   if(!(await loadDB())){toast("This saved flight needs the airport database, which only loads on the web version.",true);return;}
-  plan={src:null,xml:null,sample:false,_key:entry.key,type:'—',cruise:entry.cruise||null,direct:true,setup:{...entry.setup}};
-  if(entry.cruise){$('crz').value=entry.cruise;$('alertAlt').value=entry.cruise;alertLayer.redraw();}
+  plan={src:null,xml:null,sample:false,_key:entry.key,type:'—',cruise:entry.cruise||null,direct:!!entry.direct&&!entry.userRoute,setup:{...entry.setup},
+    userRoute:entry.userRoute||null,brief:entry.brief?{...defaultBrief(entry.brief.ac),...entry.brief}:defaultBrief('A20N')};
+  syncPerf();$('alertAlt').value=plan.brief.crz;alertLayer.redraw();routeDirty=false;
   $('sampleBadge').hidden=true;applySetup(true);
 }
 function readFile(f){if(!f)return;const r=new FileReader();r.onload=()=>load(String(r.result));r.onerror=()=>toast("Couldn't read that file. Try exporting it again.",true);r.readAsText(f);}
@@ -951,7 +1073,7 @@ function rebuild(){
   if(!dstPos)throw new Error('Arrival airport '+s.arr+" isn't in the airport list.");
   const sidObj=dp&&s.sid?dp.sid.find(x=>x.id===s.sid):null, starObj=ap&&s.star?ap.star.find(x=>x.id===s.star):null;
   // enroute part of the imported plan
-  let mid=src&&!plan.direct?src.wps.slice(1,-1).map(p=>({...p,seg:'ENR',segName:'Enroute'})):[];
+  let mid=plan.direct?[]:plan.userRoute?plan.userRoute.map(p=>({...p,seg:'ENR',segName:'Enroute'})):src?src.wps.slice(1,-1).map(p=>({...p,seg:'ENR',segName:'Enroute'})):[];
   if(!srcDep||sidObj)mid=mid.filter(p=>!p.dep);
   if(!srcDst||starObj)mid=mid.filter(p=>!p.arr);
   const fileApp=s.app==='FILE'&&srcDst&&!plan.direct;
@@ -1097,11 +1219,11 @@ $('arrRwySel').addEventListener('change',e=>{touched();const s=plan.setup;s.arrR
   if(String(s.app).startsWith('P:')){const ap=getProcs(s.arr),a=ap&&ap.app.find(x=>x.id===s.app.slice(2));if(a&&a.rw&&normRwy(a.rw)!==normRwy(s.arrRwy)){s.app='NONE';s.appTr=undefined;}}applySetup(false);});
 $('appSel').addEventListener('change',e=>{touched();plan.setup.app=e.target.value;plan.setup.appTr=undefined;applySetup(false);});
 $('goDirect').addEventListener('click',()=>{if(!plan)return;touched();plan.direct=true;applySetup(false);toast('Route cleared · direct '+plan.depId+' to '+plan.dstId);});
-$('resetPln').addEventListener('click',()=>{if(!plan||!plan.src)return;plan.setup=defaultSetup(plan.src);plan.direct=false;applySetup(true);});
+$('resetPln').addEventListener('click',()=>{if(!plan||!plan.src)return;plan.setup=defaultSetup(plan.src);plan.direct=false;plan.userRoute=null;routeDirty=false;applySetup(true);});
 $('newFlight').addEventListener('click',async()=>{
   if(!plan)return;
   if(!(await loadDB())){toast('New flights need the airport database, which loads on the web version.',true);return;}
-  plan.src=null;plan.xml=null;plan.sample=false;plan.direct=true;plan._key='new:'+Date.now();
+  plan.src=null;plan.xml=null;plan.sample=false;plan.direct=true;plan.userRoute=null;routeDirty=false;plan._key='new:'+Date.now();
   plan.setup={dep:plan.depId,depRwy:'',arr:plan.dstId,arrRwy:'',app:'NONE',sid:'',star:''};
   $('sampleBadge').hidden=true;
   if(applySetup(true)){$('depInput').focus();toast('New flight: type the departure, then the arrival');}
@@ -1196,6 +1318,245 @@ function pickPreview(it,b){
 $('pvSid').onclick=()=>openPreview('sid');$('pvStar').onclick=()=>openPreview('star');$('pvApp').onclick=()=>openPreview('app');
 addEventListener('keydown',e=>{if(e.key==='Escape'&&preview&&!e.target.matches('input'))closePreview();});
 
+
+/* ---------- planner: aircraft, briefing, route tools ---------- */
+// name, cruise TAS kt, cruise burn lb/h, cruise ft, empty wt, max zero fuel, max takeoff, max landing, fuel capacity (lb), seats, taxi fuel lb, taxi-out min, reserve min
+const ACFT={
+  A20N:['Airbus A320neo',450,5300,35000,97000,141000,174200,148800,41500,180,400,15,30],
+  B38M:['Boeing 737 MAX 8',453,5000,37000,99400,145400,181200,152800,45700,178,400,15,30],
+  A310:['Airbus A310-300',460,11000,35000,176000,249100,361600,273400,120000,220,600,15,30],
+  B78X:['Boeing 787-10',488,14500,39000,298700,425000,560000,445000,223000,330,800,15,30],
+  B748:['Boeing 747-8',493,23000,37000,485300,651000,987000,688000,400000,410,1200,15,30],
+  C25C:['Cessna Citation CJ4',430,1300,41000,10280,12500,17110,15660,5828,8,100,8,45],
+  B350:['Beechcraft King Air 350',300,650,26000,9955,12500,15000,15000,3611,9,60,8,45],
+  TBM9:['Daher TBM 930',320,380,28000,4630,6032,7394,7024,1955,5,30,6,45],
+  PC12:['Pilatus PC-12',280,450,28000,6500,9039,10450,9921,2704,9,40,6,45],
+  C172:['Cessna 172 Skyhawk',120,50,8500,1700,2550,2550,2550,318,3,8,5,45],
+  CUST:['Custom aircraft',300,1000,25000,10000,14000,18000,17000,5000,9,100,10,45]
+};
+function nextHourUtc(){const d=new Date();d.setUTCMinutes(0,0,0);d.setUTCHours(d.getUTCHours()+1);return d;}
+function profileFields(ac){const a=ACFT[ac]||ACFT.A20N;return {ac,tas:a[1],burn:a[2],crz:a[3],oew:a[4],mzfw:a[5],mtow:a[6],mlw:a[7],maxf:a[8],seats:a[9],taxi:a[10],taxiOut:a[11],res:a[12]};}
+function defaultBrief(ac){const p=profileFields(ac),d=nextHourUtc();
+  return {airline:'',num:'',call:'',reg:'',date:d.toISOString().slice(0,10),etd:d.toISOString().slice(11,16),...p,
+    pax:Math.round(p.seats*0.85),paxWt:p.seats>20?210:190,cargo:0,wind:0,cont:p.seats>20?5:0,extra:0,altn:''};}
+const BF=[['fAirline','airline'],['fNum','num'],['fCall','call'],['fDate','date'],['fEtd','etd'],['fReg','reg'],['fTas','tas',1],['fBurn','burn',1],['fCrz','crz',1],
+  ['fOew','oew',1],['fMzfw','mzfw',1],['fMtow','mtow',1],['fMlw','mlw',1],['fMaxf','maxf',1],['fSeats','seats',1],['fPax','pax',1],['fPaxWt','paxWt',1],
+  ['fCargo','cargo',1],['fWind','wind',1],['fCont','cont',1],['fRes','res',1],['fTaxi','taxi',1],['fExtra','extra',1]];
+$('fAc').innerHTML=Object.entries(ACFT).map(([k,a])=>`<option value="${k}">${esc(a[0])}</option>`).join('');
+let alertSyncT;
+function syncPerf(){const b=plan.brief;$('gs').value=Math.max(40,(+b.tas||0)+(+b.wind||0));$('burn').value=b.burn;
+  if(+$('crz').value!==+b.crz){$('crz').value=b.crz;$('alertAlt').value=b.crz;clearTimeout(alertSyncT);alertSyncT=setTimeout(()=>alertLayer.redraw(),300);}}
+let persistT;const persistSoon=()=>{clearTimeout(persistT);persistT=setTimeout(persist,600);};
+BF.forEach(([id,key,isNum])=>{const el=$(id);el.addEventListener(el.tagName==='SELECT'?'change':'input',()=>{if(!plan)return;
+  const v=el.value;plan.brief[key]=isNum?(v===''?0:+v):(['airline','call','reg'].includes(key)?v.toUpperCase():v);
+  if(['tas','burn','crz','wind'].includes(key)){syncPerf();render();}else renderOfp();persistSoon();});});
+$('fAc').addEventListener('change',e=>{if(!plan)return;const b=plan.brief;Object.assign(b,profileFields(e.target.value));
+  b.pax=Math.min(b.pax,b.seats);b.paxWt=b.seats>20?210:190;b.cont=b.seats>20?5:0;syncPerf();render();persistSoon();});
+// map-page performance inputs feed the briefing too
+['gs','burn','crz'].forEach(id=>$(id).addEventListener('input',()=>{if(!plan||!plan.brief)return;const b=plan.brief;
+  if(id==='gs')b.tas=Math.max(40,(+$('gs').value||0)-(+b.wind||0));if(id==='burn')b.burn=+$('burn').value||0;if(id==='crz')b.crz=+$('crz').value||0;renderOfp();persistSoon();}));
+
+function setDep(code){if(!plan)return;const s=plan.setup;touched();if(code.toUpperCase()===String(s.dep).toUpperCase())return;closePreview();s.dep=code;s.depRwy='';s.sid=undefined;s.sidTr=undefined;applySetup(true);}
+function setArr(code){if(!plan)return;const s=plan.setup;touched();if(code.toUpperCase()===String(s.arr).toUpperCase())return;closePreview();s.arr=code;s.arrRwy='';s.star=undefined;s.starTr=undefined;s.app='NONE';s.appTr=undefined;applySetup(true);}
+wireSearch('fDep','fDepAc',()=>plan?plan.depId:'',setDep);
+wireSearch('fArr','fArrAc',()=>plan?plan.dstId:'',setArr);
+wireSearch('fAltn','fAltnAc',()=>plan&&plan.brief?plan.brief.altn:'',code=>{plan.brief.altn=code.toUpperCase();renderOfp();persistSoon();});
+
+/* ---------- route database (FAA CIFP airways) ---------- */
+let NAV=null,navP=null,GRAPH=null,routeDirty=false;
+function loadNav(){if(!navP)navP=fetch('data/nav.json').then(r=>r.ok?r.json():null).then(d=>NAV=d).catch(()=>null);return navP;}
+const KIND={W:'Intersection',V:'VOR',N:'NDB',A:'Airport',U:'User'};
+function fixRef(r){const [id,k]=r.split('#'),i=+k||0,f=NAV.fixes[id][i];return {ident:id,i,lat:f[0],lon:f[1],kind:f[2]};}
+function nearestFix(ident,ref){const c=NAV.fixes[ident];if(!c)return null;let best=null,bd=1e9;
+  c.forEach((f,i)=>{const d=gcDist(ref,{lat:f[0],lon:f[1]});if(d<bd){bd=d;best={ident,i,lat:f[0],lon:f[1],kind:f[2]};}});return best;}
+function airwayBetween(name,a,bIdent){
+  for(const seg of NAV.airways[name]||[]){const ids=seg.map(r=>r.split('#')[0]),ia=ids.indexOf(a.ident),ib=ids.indexOf(bIdent);
+    if(ia>=0&&ib>=0&&ia!==ib)return (ia<ib?seg.slice(ia+1,ib+1):seg.slice(ib,ia).reverse()).map(fixRef);}
+  return null;}
+const toWp=f=>({ident:f.ident,type:KIND[f.kind]||'Intersection',pos:{lat:f.lat,lon:f.lon},airway:f.airway||'',dep:'',arr:'',app:'',seg:'ENR',segName:'Enroute'});
+async function parseRoute(text){
+  if(!(await loadNav()))return {err:'The route database loads on the web version only.'};
+  const s=plan.setup,dp=getProcs(s.dep),ap=getProcs(s.arr);
+  const t=text.toUpperCase().replace(/[^A-Z0-9.\/\s]/g,' ').split(/\s+/).filter(x=>x&&x!=='DCT');
+  if(t[0]===plan.depId)t.shift();if(t.length&&t[t.length-1]===plan.dstId)t.pop();
+  const res={route:[],sid:'',sidTr:'',star:'',starTr:'',unknown:[]};
+  if(t.length&&dp){const [a,b]=t[0].split('.'),o=dp.sid.find(x=>x.id===a);if(o){res.sid=a;res.sidTr=b||'';t.shift();if(!res.sidTr&&t.length&&o.tr[t[0]])res.sidTr=t[0];}}
+  if(t.length&&ap){const parts=t[t.length-1].split('.'),nm=parts[parts.length-1],o=ap.star.find(x=>x.id===nm);
+    if(o){res.star=nm;res.starTr=parts.length>1?parts[0]:'';t.pop();if(!res.starTr&&t.length&&o.tr[t[t.length-1]])res.starTr=t[t.length-1];}}
+  let ref=plan.wps[0].pos,awy=null;
+  for(const tok of t){
+    if(NAV.airways[tok]){if(res.route.length)awy=tok;else res.unknown.push(tok);continue;}
+    let f=null;const ll=tok.match(/^(\d{2})(\d{2})?([NS])\/?(\d{3})(\d{2})?([EW])$/);
+    if(ll){const lat=(+ll[1]+(+ll[2]||0)/60)*(ll[3]==='S'?-1:1),lon=(+ll[4]+(+ll[5]||0)/60)*(ll[6]==='W'?-1:1);f={ident:tok,lat,lon,kind:'U'};}
+    else f=nearestFix(tok,ref);
+    if(!f){const a=aptByCode(tok);if(a)f={ident:a.code,lat:a.lat,lon:a.lon,kind:'A'};}
+    if(!f){res.unknown.push(tok);awy=null;continue;}
+    if(awy){const prev=res.route[res.route.length-1],mids=airwayBetween(awy,prev,f.ident);
+      if(mids){mids.forEach(m=>res.route.push({...m,airway:awy}));const l=mids[mids.length-1];ref={lat:l.lat,lon:l.lon};awy=null;continue;}
+      res.unknown.push(awy+' (doesn\'t join '+prev.ident+' and '+tok+')');awy=null;}
+    res.route.push({...f,airway:''});ref={lat:f.lat,lon:f.lon};}
+  return res;}
+function buildGraph(){const nodes=new Map(),add=r=>{let n=nodes.get(r);if(!n){const f=fixRef(r);n={r,ident:f.ident,lat:f.lat,lon:f.lon,kind:f.kind,e:[]};nodes.set(r,n);}return n;};
+  for(const [name,segs] of Object.entries(NAV.airways)){const lv=NAV.levels[name];
+    segs.forEach(seg=>{for(let i=1;i<seg.length;i++){const a=add(seg[i-1]),b=add(seg[i]),d=gcDist(a,b);a.e.push([b,d,name,lv]);b.e.push([a,d,name,lv]);}});}
+  GRAPH=[...nodes.values()];}
+function heapPush(h,x){h.push(x);let i=h.length-1;while(i>0){const p=(i-1)>>1;if(h[p][0]<=h[i][0])break;[h[p],h[i]]=[h[i],h[p]];i=p;}}
+function heapPop(h){const top=h[0],last=h.pop();if(h.length){h[0]=last;let i=0;for(;;){const l=2*i+1,r=l+1;let m=i;if(l<h.length&&h[l][0]<h[m][0])m=l;if(r<h.length&&h[r][0]<h[m][0])m=r;if(m===i)break;[h[m],h[i]]=[h[i],h[m]];i=m;}}return top;}
+async function findRoute(){
+  if(!(await loadNav()))return {err:'The route database loads on the web version only.'};
+  if(!GRAPH)buildGraph();
+  const b=plan.brief,high=(+b.crz||0)>=18000,ok=lv=>lv==='B'||(high?lv==='H':lv==='L');
+  const da=aptByCode(plan.depId),aa=aptByCode(plan.dstId);
+  const A=da?{lat:da.lat,lon:da.lon}:plan.wps[0].pos,B=aa?{lat:aa.lat,lon:aa.lon}:plan.wps[plan.wps.length-1].pos,direct=gcDist(A,B);
+  if(direct<40)return {route:[],note:'Short hop: flying direct.'};
+  const near=(P)=>{for(const r of [30,60,120,200]){const c=GRAPH.filter(n=>n.e.some(e=>ok(e[3]))&&gcDist(P,n)<Math.min(r,direct*0.45));if(c.length)return c;}return [];};
+  const starts=near(A),ends=new Set(near(B));
+  if(!starts.length||!ends.size)return {route:[],note:'No airways nearby: flying direct.'};
+  const g=new Map(),prev=new Map(),h=[],limit=direct*1.5+150;let best=null,bestCost=Infinity;
+  starts.forEach(n=>{const c=gcDist(A,n)*1.25;if(c<(g.get(n)??Infinity)){g.set(n,c);prev.set(n,null);heapPush(h,[c+gcDist(n,B),n,'']);}});
+  while(h.length){const [f,n,via]=heapPop(h);if(f>=bestCost)break;const gn=g.get(n);
+    if(ends.has(n)){const c=gn+gcDist(n,B)*1.25;if(c<bestCost){bestCost=c;best=n;}}
+    for(const [m,d,name,lv] of n.e){if(!ok(lv))continue;if(gcDist(A,m)+gcDist(m,B)>limit)continue;
+      const c=gn+d+(via&&via!==name?6:0);if(c<(g.get(m)??Infinity)){g.set(m,c);prev.set(m,[n,name]);heapPush(h,[c+gcDist(m,B),m,name]);}}}
+  if(!best)return {route:[],note:'No airway route found: flying direct.'};
+  const path=[];for(let n=best;n;){const p=prev.get(n);path.unshift({ident:n.ident,lat:n.lat,lon:n.lon,kind:n.kind,airway:p?p[1]:''});n=p?p[0]:null;}
+  // pick a SID and STAR whose transition lies on the route
+  const s=plan.setup,dp=getProcs(s.dep),ap=getProcs(s.arr),ids=path.map(p=>p.ident),res={route:path,sid:'',sidTr:'',star:'',starTr:''};
+  if(dp){let bi=1e9;dp.sid.filter(p=>sidFits(p,plan.depRwy)).forEach(p=>Object.keys(p.tr).forEach(t=>{const i=ids.indexOf(t);if(i>=0&&i<ids.length*0.5&&i<bi){bi=i;res.sid=p.id;res.sidTr=t;}}));}
+  if(ap){let bi=-1;ap.star.forEach(p=>Object.keys(p.tr).forEach(t=>{const i=ids.lastIndexOf(t);if(i>=ids.length*0.5&&i>bi){bi=i;res.star=p.id;res.starTr=t;}}));}
+  return res;}
+function applyRoute(res,label){
+  const msg=$('fRouteMsg');
+  if(res.err){msg.textContent=res.err;msg.className='hint bad';return;}
+  touched();const s=plan.setup;plan.userRoute=res.route.map(toWp);plan.direct=false;
+  s.sid=res.sid||'';s.sidTr=res.sid?(res.sidTr||''):'';s.star=res.star||'';s.starTr=res.star?(res.starTr||''):'';s.appTr=undefined;
+  routeDirty=false;applySetup(true);
+  const unk=res.unknown||[];msg.className=unk.length?'hint bad':'hint';
+  msg.textContent=unk.length?'Not recognized: '+unk.join(', '):(res.note||label+' · '+Math.round(plan.total)+' nm, '+plan.wps.length+' fixes');
+}
+$('fRoute').addEventListener('input',()=>{routeDirty=true;});
+$('fUse').onclick=async()=>{$('fRouteMsg').textContent='Reading route…';$('fRouteMsg').className='hint';applyRoute(await parseRoute($('fRoute').value),'Route applied');};
+$('fFind').onclick=async()=>{$('fRouteMsg').textContent='Finding a route along airways…';$('fRouteMsg').className='hint';
+  await new Promise(r=>setTimeout(r,20));applyRoute(await findRoute(),'Route found');};
+$('fDirect').onclick=()=>{if(!plan)return;touched();plan.userRoute=[];plan.direct=false;routeDirty=false;applySetup(true);$('fRouteMsg').textContent='Direct '+plan.depId+' to '+plan.dstId;$('fRouteMsg').className='hint';};
+
+/* ---------- briefing (OFP) ---------- */
+const fmtN=n=>Math.round(n).toLocaleString();
+const hm=h=>{const m=Math.max(0,Math.round(h*60));return String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0');};
+const utc=d=>isNaN(d)?'--:--':d.toISOString().slice(11,16)+'Z';
+function ofpCalc(){const b=plan.brief,dist=plan.total,gs=Math.max(40,(+b.tas||0)+(+b.wind||0)),ete=dist/gs;
+  const trip=b.burn*ete*1.05+b.burn*0.05,cont=trip*(+b.cont||0)/100;
+  const alt=aptByCode(b.altn),dst=plan.wps[plan.wps.length-1].pos;let altD=0,altT=0,altF=0;
+  if(alt){altD=gcDist(dst,{lat:alt.lat,lon:alt.lon});altT=altD/Math.max(60,b.tas*0.8)+0.2;altF=b.burn*1.05*altT;}
+  const res=b.burn*0.85*(+b.res||0)/60,taxi=+b.taxi||0,extra=+b.extra||0,block=taxi+trip+cont+altF+res+extra;
+  const payload=(+b.pax||0)*(+b.paxWt||0)+(+b.cargo||0),zfw=(+b.oew||0)+payload,tow=zfw+block-taxi,lw=tow-trip;
+  const off=new Date(`${b.date||new Date().toISOString().slice(0,10)}T${b.etd||'12:00'}:00Z`),tkof=new Date(+off+(+b.taxiOut||10)*60000),
+    land=new Date(+tkof+ete*3600000),onb=new Date(+land+6*60000);
+  return {gs,ete,trip,cont,alt,altD,altT,altF,res,taxi,extra,block,payload,zfw,tow,lw,off,tkof,land,onb,endur:(block-taxi)/Math.max(1,b.burn)};}
+const wxCache={};let wxKey='';
+async function loadWx(force){const b=plan.brief,ids=[...new Set([plan.depId,plan.dstId,b.altn].filter(x=>/^[A-Z0-9]{3,4}$/.test(x||'')))];
+  const key=ids.join(',');if(!ids.length||(!force&&key===wxKey))return;wxKey=key;ids.forEach(id=>wxCache[id]={loading:true});renderOfp();
+  try{const [m,t]=await Promise.all(['metar','taf'].map(k=>fetch(`https://aviationweather.gov/api/data/${k}?format=raw&ids=${key}`).then(r=>{if(!r.ok)throw 0;return r.text();})));
+    const tafs=t.split(/\n(?=TAF\b|\S)/).map(x=>x.trim()).filter(Boolean);
+    ids.forEach(id=>{const re=new RegExp('(^|\\s)'+id+'\\s');wxCache[id]={metar:(m.split('\n').find(l=>re.test(l))||'').trim(),taf:tafs.find(x=>re.test(x))||''};});
+  }catch(e){ids.forEach(id=>wxCache[id]={err:true});wxKey='';}
+  renderOfp();}
+function renderOfp(){
+  if(!plan||!plan.brief||!plan.total&&plan.total!==0)return;const b=plan.brief,o=ofpCalc(),s=plan.setup,a=ACFT[b.ac]||ACFT.CUST;
+  const call=(b.call||((b.airline||'')+(b.num||''))||b.reg||'').toUpperCase();
+  const warn=[];if(b.pax>b.seats)warn.push(`Passengers exceed ${b.seats} seats`);if(o.zfw>b.mzfw)warn.push('Zero fuel weight over the limit');
+  if(o.tow>b.mtow)warn.push('Takeoff weight over the limit');if(o.lw>b.mlw)warn.push('Landing weight over the limit');if(o.block>b.maxf)warn.push('Block fuel exceeds tank capacity');
+  if((o.block-o.taxi)<o.trip+o.res)warn.push('Fuel below trip plus reserve');
+  const row=(l,v,t,cls)=>`<tr${cls?` class="${cls}"`:''}><td>${l}</td><td>${fmtN(v)}</td><td>${t==null?'':hm(t)}</td></tr>`;
+  const wrow=(l,v,max)=>`<tr><td>${l}</td><td${max&&v>max?' class="bad"':''}>${fmtN(v)}</td><td>${max?fmtN(max):''}</td><td>${max?(v>max?'<span class="bad">OVER</span>':fmtN(max-v)):''}</td></tr>`;
+  const procs=[plan.depRwy&&'RWY '+plan.depRwy,plan.sidObj&&'SID '+plan.sidObj.id+(s.sidTr?'.'+s.sidTr:''),plan.starObj&&'STAR '+(s.starTr?s.starTr+'.':'')+plan.starObj.id,
+    plan.appObj?plan.appObj.name+(s.appTr?' via '+s.appTr:''):(plan.appInfo?plan.appInfo.lab:''),plan.dstRwy&&'RWY '+plan.dstRwy].filter(Boolean);
+  const wx=id=>{if(!id)return '';const w=wxCache[id];if(!w)return '';if(w.loading)return `<div class="wx">${id} · loading…</div>`;
+    if(w.err)return `<div class="wx">${id} · weather didn't load. Use Refresh to try again.</div>`;
+    return `<div class="wx"><b>${esc(id)}</b> ${esc(w.metar||'No METAR available')}${w.taf?'\n'+esc(w.taf):''}</div>`;};
+  $('ofp').innerHTML=`
+    <h3>${esc(call||'Flight')} · ${esc(plan.depId)}–${esc(plan.dstId)}</h3>
+    <div class="sub">${esc(b.date||'')} · ${esc(a[0])}${b.reg?' · '+esc(b.reg):''}</div>
+    ${warn.map(w=>`<div class="warnl">${esc(w)}</div>`).join('')}
+    <div class="sec"><div class="kv">
+      <div><span>Distance</span>${fmtN(plan.total)} nm</div><div><span>Air time</span>${hm(o.ete)}</div>
+      <div><span>Block time</span>${hm((o.onb-o.off)/3600000)}</div><div><span>Cruise</span>${fmtAlt(plan.prof.crz)}</div>
+      <div><span>Ground speed</span>${fmtN(o.gs)} kt</div><div><span>Alternate</span>${esc(b.altn||'None')}</div></div></div>
+    <div class="sec"><h4>Route</h4><div class="rt">${esc(plan.depId)} ${esc(routeString().split(' ').slice(1,-1).join(' '))} ${esc(plan.dstId)}</div>
+      ${procs.length?`<div class="sub" style="margin-top:4px">${esc(procs.join(' · '))}</div>`:''}</div>
+    <div class="sec"><h4>Times (UTC)</h4><table class="ot"><tr><th>Out</th><th>Off</th><th>On</th><th>In</th></tr>
+      <tr><td>${utc(o.off)}</td><td>${utc(o.tkof)}</td><td>${utc(o.land)}</td><td>${utc(o.onb)}</td></tr></table></div>
+    <div class="sec"><h4>Fuel (lb)</h4><table class="ot"><tr><th></th><th>Fuel</th><th>Time</th></tr>
+      ${row('Trip',o.trip,o.ete)}${row('Contingency '+(b.cont||0)+'%',o.cont,o.cont/b.burn)}
+      ${row('Alternate'+(o.alt?' '+esc(o.alt.code)+' '+fmtN(o.altD)+' nm':''),o.altF,o.altF?o.altT:null)}
+      ${row('Final reserve',o.res,(+b.res||0)/60)}${row('Extra',o.extra,o.extra/b.burn)}${row('Taxi',o.taxi,null)}
+      ${row('Block',o.block,o.endur,'tot')}</table></div>
+    <div class="sec"><h4>Weights (lb)</h4><table class="ot"><tr><th></th><th>Planned</th><th>Max</th><th>Margin</th></tr>
+      ${wrow('Payload ('+(b.pax||0)+' pax)',o.payload)}${wrow('Zero fuel',o.zfw,b.mzfw)}${wrow('Takeoff',o.tow,b.mtow)}${wrow('Landing',o.lw,b.mlw)}</table></div>
+    <div class="sec"><h4>Weather <button type="button" id="wxRefresh">Refresh</button></h4>${wx(plan.depId)}${wx(plan.dstId)}${b.altn?wx(b.altn):''}</div>
+    <div class="sec sub">Planning estimates for flight simulation. Winds aloft use the average you enter.</div>`;
+  $('wxRefresh').onclick=()=>loadWx(true);
+  $('ofpHint').textContent=warn.length?warn.length+' item'+(warn.length>1?'s':'')+' to check':'Ready';$('ofpHint').className='hint'+(warn.length?' bad':'');
+}
+function renderPlanner(){
+  if(!plan||!plan.brief)return;const b=plan.brief,act=document.activeElement;
+  BF.forEach(([id,key])=>{const el=$(id);if(el!==act)el.value=b[key]??'';});
+  if($('fAc')!==act)$('fAc').value=b.ac;
+  if($('fDep')!==act)$('fDep').value=plan.depId;if($('fArr')!==act)$('fArr').value=plan.dstId;if($('fAltn')!==act)$('fAltn').value=b.altn||'';
+  $('fDepName').textContent=plan.depName||'';$('fArrName').textContent=plan.dstName||'';const al=aptByCode(b.altn);$('fAltnName').textContent=al?al.name:'';
+  if(!routeDirty&&$('fRoute')!==act)$('fRoute').value=routeString().split(' ').slice(1,-1).join(' ');
+  renderOfp();loadWx(false);
+}
+
+/* ---------- export for MSFS ---------- */
+function exportPln(){
+  const s=plan.setup,w=plan.wps,b=plan.brief,pos=(p,alt)=>`${dms(p.lat,'N','S')},${dms(p.lon,'E','W')},+${(alt||0).toFixed(2).padStart(9,'0')}`;
+  const rwy=id=>{const m=String(id||'').match(/^0?(\d{1,2})([LRC])?/);return m?{n:m[1],d:{L:'LEFT',R:'RIGHT',C:'CENTER'}[m[2]]||''}:null;};
+  const T={APT:'Airport',VOR:'VOR',NDB:'NDB',FIX:'Intersection',USR:'User'};
+  const wpXml=w.map((p,i)=>{const t=shortType(p.type);let x=`<ATCWaypoint id="${esc(p.ident)}"><ATCWaypointType>${T[t]}</ATCWaypointType><WorldPosition>${pos(p.pos,i===0?plan.depElev:i===w.length-1?plan.dstElev:0)}</WorldPosition>`;
+    if(p.airway)x+=`<ATCAirway>${esc(p.airway)}</ATCAirway>`;
+    if(p.seg==='SID'&&plan.sidObj)x+=`<DepartureFP>${esc(plan.sidObj.id)}</DepartureFP>`;
+    if(p.seg==='STAR'&&plan.starObj)x+=`<ArrivalFP>${esc(plan.starObj.id)}</ArrivalFP>`;
+    return x+`<ICAO><ICAOIdent>${esc(p.ident)}</ICAOIdent></ICAO></ATCWaypoint>`;}).join('\n');
+  const dr=rwy(plan.depRwy),ar=rwy(plan.dstRwy),ao=plan.appObj;
+  const appType=ao?({ILS:'ILS',LOC:'LOCALIZER',RNAV:'RNAV',VOR:'VOR',NDB:'NDB',LDA:'LDA',SDF:'SDF',GPS:'GPS'}[ao.name.split(/[ /(]/)[0]]||'RNAV'):'';
+  const suffix=ao?((ao.name.match(/ ([XYZW]) /)||[])[1]||''):'';
+  const xml=`<?xml version="1.0" encoding="UTF-8"?>
+<SimBase.Document Type="AceXML" version="1,0">
+<Descr>AceXML Document</Descr>
+<FlightPlan.FlightPlan>
+<Title>${esc(plan.depId)} to ${esc(plan.dstId)}</Title>
+<FPType>${(+b.crz||0)>=18000||w.some(p=>p.airway)?'IFR':'VFR'}</FPType>
+<RouteType>${(+b.crz||0)>=18000?'HighAlt':'LowAlt'}</RouteType>
+<CruisingAlt>${Math.round(+b.crz||0)}</CruisingAlt>
+<DepartureID>${esc(plan.depId)}</DepartureID>
+<DepartureLLA>${pos(w[0].pos,plan.depElev)}</DepartureLLA>
+<DestinationID>${esc(plan.dstId)}</DestinationID>
+<DestinationLLA>${pos(w[w.length-1].pos,plan.dstElev)}</DestinationLLA>
+<DepartureName>${esc(plan.depName||plan.depId)}</DepartureName>
+<DestinationName>${esc(plan.dstName||plan.dstId)}</DestinationName>
+${dr?`<DepartureDetails><RunwayNumberFP>${dr.n}</RunwayNumberFP>${dr.d?`<RunwayDesignatorFP>${dr.d}</RunwayDesignatorFP>`:''}${plan.sidObj?`<DepartureFP>${esc(plan.sidObj.id)}</DepartureFP>`:''}</DepartureDetails>`:''}
+${ao&&ar?`<ApproachDetails><ApproachType>${appType}</ApproachType><RunwayNumberFP>${ar.n}</RunwayNumberFP>${ar.d?`<RunwayDesignatorFP>${ar.d}</RunwayDesignatorFP>`:''}${suffix?`<SuffixFP>${suffix}</SuffixFP>`:''}${s.appTr?`<ApproachTransition>${esc(s.appTr)}</ApproachTransition>`:''}</ApproachDetails>`:''}
+<AppVersion><AppVersionMajor>12</AppVersionMajor><AppVersionBuild>282174</AppVersionBuild></AppVersion>
+${wpXml}
+</FlightPlan.FlightPlan>
+</SimBase.Document>
+`;
+  const url=URL.createObjectURL(new Blob([xml],{type:'application/xml'})),a=document.createElement('a');
+  a.href=url;a.download=plan.depId+plan.dstId+'.pln';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),2000);
+  toast('Saved '+a.download+'. Load it from the MSFS world map.');
+}
+$('exportPln').onclick=()=>plan&&exportPln();
+
+/* ---------- views ---------- */
+let pendingFit=null;
+function showView(v){const m=v==='map';$('planView').hidden=m;$('mapView').hidden=!m;
+  $('tabPlan').classList.toggle('on',!m);$('tabMap').classList.toggle('on',m);$('tabPlan').setAttribute('aria-selected',String(!m));$('tabMap').setAttribute('aria-selected',String(m));
+  if(location.hash!=='#'+v)history.replaceState(null,'','#'+v);
+  if(m)setTimeout(()=>{map.invalidateSize();if(pendingFit){map.fitBounds(pendingFit,{padding:[40,40]});pendingFit=null;}updateLegLabels();drawProf();},30);else closePreview();}
+$('tabPlan').onclick=()=>showView('plan');$('tabMap').onclick=()=>showView('map');$('toMap').onclick=()=>showView('map');
+addEventListener('hashchange',()=>showView(location.hash==='#map'?'map':'plan'));
+
 /* ---------- sample plan (example data, KSEA–KSFO via V23) ---------- */
 function dms(v,pos,neg){const s=v<0?neg:pos;v=Math.abs(v);const d=Math.floor(v),mf=(v-d)*60,m=Math.floor(mf),sec=((mf-m)*60).toFixed(2);return `${s}${d}° ${m}' ${sec}"`;}
 function wp(id,type,lat,lon,alt,extra=''){return `<ATCWaypoint id="${id}"><ATCWaypointType>${type}</ATCWaypointType><WorldPosition>${dms(lat,'N','S')},${dms(lon,'E','W')},+${alt.toFixed(2).padStart(9,'0')}</WorldPosition>${extra}<ICAO><ICAOIdent>${id}</ICAOIdent></ICAO></ATCWaypoint>`;}
@@ -1214,10 +1575,11 @@ ${wp('RBL','VOR',40.0989,-122.2365,0)}${wp('PYE','VOR',38.0797,-122.8678,0)}${wp
 
 const rec=getRecents();
 if(rec.length&&rec[0].xml) load(rec[0].xml,{entry:rec[0]});
-else if(rec.length) loadScratch(rec[0]).then(()=>{if(!plan){$('gs').value=260;$('burn').value=650;load(SAMPLE,{sample:true});}});
-else {$('gs').value=260;$('burn').value=650;load(SAMPLE,{sample:true});}
+else if(rec.length) loadScratch(rec[0]).then(()=>{if(!plan)load(SAMPLE,{sample:true});});
+else load(SAMPLE,{sample:true});
 drawRecents();
 loadDB().then(ok=>{if(ok&&plan)applySetup(false);});
+showView(location.hash==='#map'?'map':'plan');
 })();
 </script>
 </body>

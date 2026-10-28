@@ -55,6 +55,7 @@ def main():
         path = os.path.join(ROOT, 'FAACIFP18.tmp')
         open(path, 'wb').write(raw)
         subprocess.check_call([sys.executable, os.path.join(ROOT, 'tools', 'build_cifp.py'), path, OUT])
+        subprocess.check_call([sys.executable, os.path.join(ROOT, 'tools', 'build_nav.py'), path, os.path.join(ROOT, 'data', 'nav.json')])
         os.remove(path)
         return 0
     print('no CIFP download found')
