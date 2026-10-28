@@ -151,6 +151,9 @@ td.cons{color:var(--accent)}
 .pvl.dim{opacity:.35}
 .pvf{position:absolute;transform:translate(7px,-50%);font:600 10.5px var(--f-mono);color:#16212a;background:rgba(255,255,255,.92);padding:0 4px;border-radius:2px;white-space:nowrap;pointer-events:none}
 .pvf small{color:#0a6a86;margin-left:4px;font-weight:600}
+.pvapt{position:absolute;transform:translate(-50%,-50%);pointer-events:none}
+.pvapt svg{display:block;width:22px;height:22px;filter:drop-shadow(0 1px 2px rgba(0,0,0,.4))}
+.pvapt span{position:absolute;left:16px;top:-22px;font:700 14px var(--f-mono);color:#fff;background:#0a6a86;padding:1px 6px;border-radius:3px;box-shadow:0 1px 3px rgba(0,0,0,.35);white-space:nowrap}
 .pv{align-self:flex-start;font:600 10px var(--f-body);letter-spacing:.08em;text-transform:uppercase;border:1px solid var(--line);background:var(--bg);color:var(--accent);padding:4px 8px;border-radius:4px;cursor:pointer}
 .pv:hover{border-color:var(--accent)}
 .pv:disabled{opacity:.45;cursor:default}
@@ -1140,6 +1143,10 @@ function openPreview(kind){
     it.polys.push({vis,b});
     if(b.tr){const at=kind==='sid'?pts[pts.length-1]:pts[0];
       it.labels.push(L.marker(at,{pane:'pvLbl',interactive:false,keyboard:false,icon:L.divIcon({className:'',iconSize:null,html:`<div class="pvl" style="--c:${it.color}">${esc(b.tr)}</div>`})}).addTo(layer));}}));
+  // keep the airport visible as a reference point
+  {const code=kind==='sid'?plan.depId:plan.dstId,a=aptByCode(code),w=kind==='sid'?plan.wps[0]:plan.wps[plan.wps.length-1];
+   const ll=a?[a.lat,a.lon]:[w.pos.lat,w.pos.lon];bounds.extend(ll);
+   L.marker(ll,{pane:'pvLbl',interactive:false,keyboard:false,icon:L.divIcon({className:'',iconSize:null,html:`<div class="pvapt">${SYM.APT}<span>${esc(code)}</span></div>`})}).addTo(layer);}
   // floating list
   const box=document.createElement('div');box.className='pvbox';
   box.innerHTML=`<div class="pvh"><span>${esc(d.title)}</span><button type="button" class="btn primary" id="pvDone">Done</button></div>
