@@ -135,7 +135,9 @@ input[type=file]{position:absolute;width:1px;height:1px;opacity:0;pointer-events
 td.cons{color:var(--accent)}
 @media (max-width:560px){.procs{grid-template-columns:minmax(0,1fr)}}
 .mapwrap{position:relative}
-.previewing .leaflet-overlay-pane,.previewing .leaflet-marker-pane{opacity:.28;transition:opacity .2s}
+.previewing .leaflet-overlay-pane{opacity:.28;transition:opacity .2s}
+.previewing .leaflet-marker-pane .wpt:not(.apt),.previewing .leaflet-marker-pane .leg{opacity:.28}
+.previewing .leaflet-marker-pane .wpt.apt{z-index:1}
 .pvbox{position:absolute;top:10px;left:54px;z-index:800;width:min(260px,calc(100% - 66px));max-height:calc(100% - 20px);display:flex;flex-direction:column;background:var(--panel);border:1px solid var(--line);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.22);overflow:hidden}
 .pvh{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid var(--line);font:600 12px var(--f-body)}
 .pvh .btn{padding:4px 10px;font-size:12px}
@@ -1146,7 +1148,7 @@ function openPreview(kind){
   // keep the airport visible as a reference point
   {const code=kind==='sid'?plan.depId:plan.dstId,a=aptByCode(code),w=kind==='sid'?plan.wps[0]:plan.wps[plan.wps.length-1];
    const ll=a?[a.lat,a.lon]:[w.pos.lat,w.pos.lon];bounds.extend(ll);
-   L.marker(ll,{pane:'pvLbl',interactive:false,keyboard:false,icon:L.divIcon({className:'',iconSize:null,html:`<div class="pvapt">${SYM.APT}<span>${esc(code)}</span></div>`})}).addTo(layer);}
+}
   // floating list
   const box=document.createElement('div');box.className='pvbox';
   box.innerHTML=`<div class="pvh"><span>${esc(d.title)}</span><button type="button" class="btn primary" id="pvDone">Done</button></div>
