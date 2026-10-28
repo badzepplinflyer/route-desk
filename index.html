@@ -304,6 +304,8 @@ tfoot td{font-weight:500;border-bottom:0;color:var(--muted)}
             <label for="fDep">Departure<input id="fDep" class="icao-f" autocomplete="off" spellcheck="false" placeholder="ICAO"><div class="ac" id="fDepAc" hidden></div><small id="fDepName"></small></label>
             <label for="fArr">Arrival<input id="fArr" class="icao-f" autocomplete="off" spellcheck="false" placeholder="ICAO"><div class="ac" id="fArrAc" hidden></div><small id="fArrName"></small></label>
             <label for="fAltn">Alternate<input id="fAltn" class="icao-f" autocomplete="off" spellcheck="false" placeholder="ICAO"><div class="ac" id="fAltnAc" hidden></div><small id="fAltnName"></small></label>
+            <label for="fDepRwy">Departure runway<select id="fDepRwy"></select><small id="fDepRwyWhy"></small></label>
+            <label for="fArrRwy">Arrival runway<select id="fArrRwy"></select><small id="fArrRwyWhy"></small></label>
           </div>
           <label class="ffull" for="fRoute">Route<textarea id="fRoute" rows="3" spellcheck="false" placeholder="SSTIK5.KAYEX BCE J60 ... BLAID2"></textarea></label>
           <div class="rbar">
@@ -325,6 +327,14 @@ tfoot td{font-weight:500;border-bottom:0;color:var(--muted)}
             <label for="fRes">Final reserve<select id="fRes"><option value="30">30 min</option><option value="45">45 min</option><option value="60">60 min</option></select></label>
             <label for="fTaxi">Taxi fuel lb<input id="fTaxi" type="number" min="0" step="10"></label>
             <label for="fExtra">Extra fuel lb<input id="fExtra" type="number" min="0" step="50"></label>
+            <label for="fExtraMin">Extra fuel min<input id="fExtraMin" type="number" min="0" step="5"></label>
+          </div>
+          <div class="rbar">
+            <span class="hint">Add extra fuel:</span>
+            <button type="button" class="btn" data-xmin="15">+15 min</button>
+            <button type="button" class="btn" data-xmin="30">+30 min</button>
+            <button type="button" class="btn" data-xmin="60">+60 min</button>
+            <button type="button" class="btn" data-xclear="1">Clear extra</button>
           </div>
         </section>
       </div>
@@ -1209,11 +1219,9 @@ function applySetup(fit){
   render();drawRoute(fit);refreshPlannedRunways();loadTerrain();persist();if(typeof markPreview==='function')markPreview();return true;
 }
 function touched(){if(plan&&plan.sample){plan.sample=false;plan._key='new:'+Date.now();$('sampleBadge').hidden=true;}}
-wireSearch('depInput','depAc',()=>plan?plan.depId:'',code=>{if(!plan)return;const s=plan.setup;touched();
-  if(code.toUpperCase()===String(s.dep).toUpperCase())return;closePreview();s.dep=code;s.depRwy='';s.sid=undefined;s.sidTr=undefined;applySetup(true);});
-wireSearch('arrInput','arrAc',()=>plan?plan.dstId:'',code=>{if(!plan)return;const s=plan.setup;touched();
-  if(code.toUpperCase()===String(s.arr).toUpperCase())return;closePreview();s.arr=code;s.arrRwy='';s.star=undefined;s.starTr=undefined;s.app='NONE';s.appTr=undefined;applySetup(true);});
-$('depRwySel').addEventListener('change',e=>{touched();const s=plan.setup;s.depRwy=e.target.value;const dp=getProcs(s.dep);
+wireSearch('depInput','depAc',()=>plan?plan.depId:'',code=>setDep(code));
+wireSearch('arrInput','arrAc',()=>plan?plan.dstId:'',code=>setArr(code));
+$('depRwySel').addEventListener('change',e=>{touched();const s=plan.setup;s.depRwy=e.target.value;s.depRwyMode=e.target.value?'manual':'auto';const dp=getProcs(s.dep);
   if(dp&&s.sid){const o=dp.sid.find(x=>x.id===s.sid);if(o&&!sidFits(o,s.depRwy)){s.sid='';s.sidTr='';}}applySetup(false);});
 $('sidSel').addEventListener('change',e=>{touched();plan.setup.sid=e.target.value;plan.setup.sidTr=undefined;applySetup(false);});
 $('sidTrSel').addEventListener('change',e=>{touched();plan.setup.sidTr=e.target.value;applySetup(false);});
@@ -1221,9 +1229,9 @@ $('starSel').addEventListener('change',e=>{touched();plan.setup.star=e.target.va
 $('starTrSel').addEventListener('change',e=>{touched();plan.setup.starTr=e.target.value;applySetup(false);});
 $('appTrSel').addEventListener('change',e=>{touched();plan.setup.appTr=e.target.value;applySetup(false);});
 $('strip').addEventListener('click',e=>{const b=e.target.closest('button.fx');if(!b)return;const i=+b.dataset.i,p=plan.wps[i];if(i===selected){select(-1);return;}map.panTo([p.pos.lat,p.pos.lon]);select(i);});
-$('arrRwySel').addEventListener('change',e=>{touched();const s=plan.setup;s.arrRwy=e.target.value;
+$('arrRwySel').addEventListener('change',e=>{touched();const s=plan.setup;s.arrRwy=e.target.value;s.arrRwyMode=e.target.value?'manual':'auto';
   if(String(s.app).startsWith('P:')){const ap=getProcs(s.arr),a=ap&&ap.app.find(x=>x.id===s.app.slice(2));if(a&&a.rw&&normRwy(a.rw)!==normRwy(s.arrRwy)){s.app='NONE';s.appTr=undefined;}}applySetup(false);});
-$('appSel').addEventListener('change',e=>{touched();plan.setup.app=e.target.value;plan.setup.appTr=undefined;applySetup(false);});
+$('appSel').addEventListener('change',e=>{touched();plan.setup.app=e.target.value;plan.setup.appTr=undefined;if(String(e.target.value).startsWith('P:'))plan.setup.arrRwyMode='manual';applySetup(false);});
 $('goDirect').addEventListener('click',()=>{if(!plan)return;touched();plan.direct=true;applySetup(false);toast('Route cleared · direct '+plan.depId+' to '+plan.dstId);});
 $('resetPln').addEventListener('click',()=>{if(!plan||!plan.src)return;plan.setup=defaultSetup(plan.src);plan.direct=false;plan.userRoute=null;routeDirty=false;applySetup(true);});
 $('newFlight').addEventListener('click',async()=>{
@@ -1367,8 +1375,8 @@ $('fAc').addEventListener('change',e=>{if(!plan)return;const b=plan.brief;Object
 ['gs','burn','crz'].forEach(id=>$(id).addEventListener('input',()=>{if(!plan||!plan.brief)return;const b=plan.brief;
   if(id==='gs')b.tas=Math.max(40,(+$('gs').value||0)-(+b.wind||0));if(id==='burn')b.burn=+$('burn').value||0;if(id==='crz')b.crz=+$('crz').value||0;renderOfp();persistSoon();}));
 
-function setDep(code){if(!plan)return;const s=plan.setup;touched();if(code.toUpperCase()===String(s.dep).toUpperCase())return;closePreview();s.dep=code;s.depRwy='';s.sid=undefined;s.sidTr=undefined;applySetup(true);}
-function setArr(code){if(!plan)return;const s=plan.setup;touched();if(code.toUpperCase()===String(s.arr).toUpperCase())return;closePreview();s.arr=code;s.arrRwy='';s.star=undefined;s.starTr=undefined;s.app='NONE';s.appTr=undefined;applySetup(true);}
+function setDep(code){if(!plan)return;const s=plan.setup;touched();if(code.toUpperCase()===String(s.dep).toUpperCase())return;closePreview();s.dep=code;s.depRwy='';s.depRwyMode='auto';s.sid=undefined;s.sidTr=undefined;plan.rwyWhy={...plan.rwyWhy,dep:''};applySetup(true);}
+function setArr(code){if(!plan)return;const s=plan.setup;touched();if(code.toUpperCase()===String(s.arr).toUpperCase())return;closePreview();s.arr=code;s.arrRwy='';s.arrRwyMode='auto';s.star=undefined;s.starTr=undefined;s.app='NONE';s.appTr=undefined;plan.rwyWhy={...plan.rwyWhy,arr:''};applySetup(true);}
 wireSearch('fDep','fDepAc',()=>plan?plan.depId:'',setDep);
 wireSearch('fArr','fArrAc',()=>plan?plan.dstId:'',setArr);
 wireSearch('fAltn','fAltnAc',()=>plan&&plan.brief?plan.brief.altn:'',code=>{plan.brief.altn=code.toUpperCase();renderOfp();persistSoon();});
@@ -1464,7 +1472,7 @@ function applyRoute(res,label){
 }
 $('fRoute').addEventListener('input',()=>{routeDirty=true;});
 $('fUse').onclick=async()=>{$('fRouteMsg').textContent='Reading route…';$('fRouteMsg').className='hint';applyRoute(await parseRoute($('fRoute').value),'Route applied');};
-$('fFind').onclick=async()=>{$('fRouteMsg').textContent='Finding a route along airways…';$('fRouteMsg').className='hint';
+$('fFind').onclick=async()=>{$('fRouteMsg').textContent='Checking live runways, then finding a route…';$('fRouteMsg').className='hint';await autoRunways(false);
   await new Promise(r=>setTimeout(r,20));applyRoute(await findRoute(),'Route found');};
 $('fDirect').onclick=()=>{if(!plan)return;touched();plan.userRoute=[];plan.direct=false;routeDirty=false;applySetup(true);$('fRouteMsg').textContent='Direct '+plan.depId+' to '+plan.dstId;$('fRouteMsg').className='hint';};
 
@@ -1497,8 +1505,9 @@ function renderOfp(){
   if((o.block-o.taxi)<o.trip+o.res)warn.push('Fuel below trip plus reserve');
   const row=(l,v,t,cls)=>`<tr${cls?` class="${cls}"`:''}><td>${l}</td><td>${fmtN(v)}</td><td>${t==null?'':hm(t)}</td></tr>`;
   const wrow=(l,v,max)=>`<tr><td>${l}</td><td${max&&v>max?' class="bad"':''}>${fmtN(v)}</td><td>${max?fmtN(max):''}</td><td>${max?(v>max?'<span class="bad">OVER</span>':fmtN(max-v)):''}</td></tr>`;
-  const procs=[plan.depRwy&&'RWY '+plan.depRwy,plan.sidObj&&'SID '+plan.sidObj.id+(s.sidTr?'.'+s.sidTr:''),plan.starObj&&'STAR '+(s.starTr?s.starTr+'.':'')+plan.starObj.id,
-    plan.appObj?plan.appObj.name+(s.appTr?' via '+s.appTr:''):(plan.appInfo?plan.appInfo.lab:''),plan.dstRwy&&'RWY '+plan.dstRwy].filter(Boolean);
+  const rw=plan.rwyWhy||{},src2=(m,w)=>m!=='manual'&&w?' ('+w+')':'';
+  const procs=[plan.depRwy&&'RWY '+plan.depRwy+src2(s.depRwyMode,rw.dep),plan.sidObj&&'SID '+plan.sidObj.id+(s.sidTr?'.'+s.sidTr:''),plan.starObj&&'STAR '+(s.starTr?s.starTr+'.':'')+plan.starObj.id,
+    plan.appObj?plan.appObj.name+(s.appTr?' via '+s.appTr:''):(plan.appInfo?plan.appInfo.lab:''),plan.dstRwy&&'RWY '+plan.dstRwy+src2(s.arrRwyMode,rw.arr)].filter(Boolean);
   const wx=id=>{if(!id)return '';const w=wxCache[id];if(!w)return '';if(w.loading)return `<div class="wx">${id} · loading…</div>`;
     if(w.err)return `<div class="wx">${id} · weather didn't load. Use Refresh to try again.</div>`;
     return `<div class="wx"><b>${esc(id)}</b> ${esc(w.metar||'No METAR available')}${w.taf?'\n'+esc(w.taf):''}</div>`;};
@@ -1523,7 +1532,7 @@ function renderOfp(){
       ${wrow('Payload ('+(b.pax||0)+' pax)',o.payload)}${wrow('Zero fuel',o.zfw,b.mzfw)}${wrow('Takeoff',o.tow,b.mtow)}${wrow('Landing',o.lw,b.mlw)}</table></div>
     <div class="sec"><h4>Weather <button type="button" id="wxRefresh">Refresh</button></h4>${wx(plan.depId)}${wx(plan.dstId)}${b.altn?wx(b.altn):''}</div>
     <div class="sec sub">Planning estimates for flight simulation. Winds aloft use the average you enter.</div>`;
-  $('wxRefresh').onclick=()=>loadWx(true);
+  $('wxRefresh').onclick=()=>{for(const k in atisCache)delete atisCache[k];autoKey=[plan.depId,plan.dstId,plan.brief.altn].join(',');autoRunways(true).then(ch=>{if(!ch)loadWx(true);});};
   $('ofpHint').textContent=warn.length?warn.length+' item'+(warn.length>1?'s':'')+' to check':'Ready';$('ofpHint').className='hint'+(warn.length?' bad':'');
 }
 function renderPlanner(){
@@ -1535,8 +1544,81 @@ function renderPlanner(){
   if($('fDep')!==act)$('fDep').value=plan.depId;if($('fArr')!==act)$('fArr').value=plan.dstId;if($('fAltn')!==act)$('fAltn').value=b.altn||'';
   $('fDepName').textContent=plan.depName||'';$('fArrName').textContent=plan.dstName||'';const al=aptByCode(b.altn);$('fAltnName').textContent=al?al.name:'';
   if(!routeDirty&&$('fRoute')!==act)$('fRoute').value=routeString().split(' ').slice(1,-1).join(' ');
-  renderOfp();loadWx(false);
+  const s=plan.setup,why=plan.rwyWhy||{};
+  if($('fDepRwy')!==act)$('fDepRwyWhy').textContent=fillRwySel($('fDepRwy'),aptByCode(s.dep),plan.depRwy,s.depRwyMode,why.dep);
+  if($('fArrRwy')!==act)$('fArrRwyWhy').textContent=fillRwySel($('fArrRwy'),aptByCode(s.arr),plan.dstRwy,s.arrRwyMode,why.arr);
+  if($('fExtraMin')!==act)$('fExtraMin').value=b.burn?Math.round((+b.extra||0)/b.burn*60):0;
+  renderOfp();
+  const k=[plan.depId,plan.dstId,b.altn].join(',');if(k!==autoKey&&!rwyBusy){autoKey=k;autoRunways(false);}
 }
+
+/* ---------- live runway selection (D-ATIS, then METAR wind) ---------- */
+const atisCache={};
+async function fetchAtis(id){
+  if(atisCache[id]&&Date.now()-atisCache[id].t<10*60000)return atisCache[id];
+  const res={t:Date.now(),text:'',arr:[],dep:[]};
+  try{const r=await fetch('https://datis.clowd.io/api/'+encodeURIComponent(id));
+    if(r.ok){const j=await r.json(),list=Array.isArray(j)?j:[];
+      list.forEach(x=>{const p=parseAtis(x.datis||'');
+        if(x.type==='dep')res.dep.push(...p.dep,...p.both);else if(x.type==='arr')res.arr.push(...p.arr,...p.both);
+        else{res.arr.push(...p.arr,...p.both);res.dep.push(...p.dep,...p.both);}
+        res.text+=(res.text?'\n':'')+(x.datis||'');});}}catch(e){}
+  res.arr=[...new Set(res.arr)];res.dep=[...new Set(res.dep)];atisCache[id]=res;return res;}
+function parseAtis(text){
+  const out={arr:[],dep:[],both:[]},T=String(text).toUpperCase().replace(/\s+/g,' ');
+  T.split(/[.;]/).forEach(sen=>{
+    const m=sen.match(/\b(?:RWYS?|RY|RUNWAYS?)\s+[0-9LRC ,&\/]+(?:\s*(?:AND|OR)\s*[0-9LRC ,&\/]+)*/g);if(!m)return;
+    const ids=[];m.forEach(x=>(x.replace(/^\S+\s+/,'').match(/\b\d{1,2}[LRC]?\b/g)||[]).forEach(r=>{const n=+r.replace(/\D/g,'');if(n>0&&n<=36)ids.push(r.replace(/^0/,''));}));
+    if(!ids.length)return;
+    const land=/\b(LANDING|LNDG|LDG|ARRIVING|ARRIVALS?|ARVNG|APCHS?|APPROACH(ES)?|VISUAL|ILS|RNAV|EXPECT)\b/.test(sen),
+      dep=/\b(DEPARTING|DEPTING|DEPG|DEPTG|DPTG|DEPARTURES?|DEPS?|DEPTS?|TKOF|TAKE ?OFF)\b/.test(sen);
+    if(land&&dep)out.both.push(...ids);else if(land)out.arr.push(...ids);else if(dep)out.dep.push(...ids);});
+  return out;}
+function metarWind(metar){const m=String(metar||'').match(/\b(\d{3}|VRB)(\d{2,3})(?:G(\d{2,3}))?KT\b/);if(!m)return null;return {dir:m[1]==='VRB'?null:+m[1],spd:+m[2],gust:m[3]?+m[3]:0};}
+function pickRunway(apt,kind,atisIds,wind,pd){
+  if(!apt||!apt.ends.length)return null;
+  const hasIls=e=>pd&&pd.app.some(a=>normRwy(a.rw)===normRwy(e.id)&&/^ILS/.test(a.name));
+  const score=e=>(e.len||0)/1000+(kind==='arr'&&hasIls(e)?6:0);
+  if(atisIds&&atisIds.length){const c=apt.ends.filter(e=>atisIds.some(r=>normRwy(r)===normRwy(e.id)));
+    if(c.length)return {id:c.sort((a,b)=>score(b)-score(a))[0].id,why:'ATIS'};}
+  if(wind&&wind.dir!=null&&wind.spd>=4){
+    const hw=e=>wind.spd*Math.cos((wind.dir-e.course)*D2R),best=Math.max(...apt.ends.map(hw));
+    const c=apt.ends.filter(e=>hw(e)>=best-4&&hw(e)>-2),e=(c.length?c:apt.ends).sort((a,b)=>score(b)-score(a))[0];
+    return {id:e.id,why:'wind '+String(wind.dir).padStart(3,'0')+'/'+wind.spd+(wind.gust?'G'+wind.gust:'')};}
+  return {id:[...apt.ends].sort((a,b)=>score(b)-score(a))[0].id,why:wind?'calm wind':'no live data'};}
+let rwyBusy=false,autoKey='';
+async function autoRunways(force){
+  if(!plan||rwyBusy)return false;const s=plan.setup;
+  const doDep=s.depRwyMode!=='manual',doArr=s.arrRwyMode!=='manual';
+  if(!doDep&&!doArr){loadWx(!!force);return false;}
+  rwyBusy=true;let changed=false;
+  try{
+    await loadWx(!!force);
+    const pick=async(code,kind)=>{const apt=aptByCode(code);if(!apt)return null;const at=await fetchAtis(apt.code.toUpperCase());
+      const w=metarWind((wxCache[String(code).toUpperCase()]||{}).metar);
+      return pickRunway(apt,kind,kind==='dep'?at.dep:at.arr,w,getProcs(code));};
+    plan.rwyWhy=plan.rwyWhy||{};
+    if(doDep){const r=await pick(s.dep,'dep');if(r){plan.rwyWhy.dep=r.why;if(normRwy(r.id)!==normRwy(s.depRwy)){s.depRwy=r.id;changed=true;
+      const dp=getProcs(s.dep),o=dp&&s.sid&&dp.sid.find(x=>x.id===s.sid);if(o&&!sidFits(o,s.depRwy)){s.sid='';s.sidTr='';}}}}
+    if(doArr){const r=await pick(s.arr,'arr');if(r){plan.rwyWhy.arr=r.why;if(normRwy(r.id)!==normRwy(s.arrRwy)){s.arrRwy=r.id;changed=true;
+      if(String(s.app).startsWith('P:')){const ap=getProcs(s.arr),a=ap&&ap.app.find(x=>x.id===s.app.slice(2));if(a&&a.rw&&normRwy(a.rw)!==normRwy(s.arrRwy)){s.app='NONE';s.appTr=undefined;}}}}}
+  }finally{rwyBusy=false;}
+  if(changed)applySetup(false);else renderPlanner();
+  return changed;}
+function fillRwySel(sel,apt,cur,mode,why){
+  const o=[`<option value="AUTO">Auto (live)${mode!=='manual'&&cur?' · RWY '+esc(cur):''}</option>`];
+  if(apt)apt.ends.forEach(e=>o.push(`<option value="${esc(e.id)}">RWY ${esc(e.id)}${e.len?' · '+e.len.toLocaleString()+' ft':''}</option>`));
+  sel.innerHTML=o.join('');sel.value=mode==='manual'&&cur?(findEnd(apt,cur)?.id||'AUTO'):'AUTO';
+  return mode!=='manual'?(why?'From '+why:'Waiting for live data'):'Set by you';}
+$('fDepRwy').addEventListener('change',e=>{if(!plan)return;touched();const s=plan.setup;
+  if(e.target.value==='AUTO'){s.depRwyMode='auto';autoRunways(true);}else{s.depRwyMode='manual';s.depRwy=e.target.value;
+    const dp=getProcs(s.dep),o=dp&&s.sid&&dp.sid.find(x=>x.id===s.sid);if(o&&!sidFits(o,s.depRwy)){s.sid='';s.sidTr='';}applySetup(false);}});
+$('fArrRwy').addEventListener('change',e=>{if(!plan)return;touched();const s=plan.setup;
+  if(e.target.value==='AUTO'){s.arrRwyMode='auto';autoRunways(true);}else{s.arrRwyMode='manual';s.arrRwy=e.target.value;
+    if(String(s.app).startsWith('P:')){const ap=getProcs(s.arr),a=ap&&ap.app.find(x=>x.id===s.app.slice(2));if(a&&a.rw&&normRwy(a.rw)!==normRwy(s.arrRwy)){s.app='NONE';s.appTr=undefined;}}applySetup(false);}});
+$('fExtraMin').addEventListener('input',e=>{if(!plan)return;const b=plan.brief;b.extra=Math.round((+e.target.value||0)/60*(+b.burn||0));renderPlanner();persistSoon();});
+document.querySelectorAll('[data-xmin],[data-xclear]').forEach(btn=>btn.addEventListener('click',()=>{if(!plan)return;const b=plan.brief;
+  b.extra=btn.dataset.xclear?0:Math.round((+b.extra||0)+(+btn.dataset.xmin)/60*(+b.burn||0));renderPlanner();persistSoon();}));
 
 /* ---------- export for MSFS ---------- */
 function exportPln(){
