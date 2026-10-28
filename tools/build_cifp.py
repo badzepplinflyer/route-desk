@@ -58,7 +58,7 @@ def main(src, out):
             if sec == 'E' and line[5] == 'A':
                 c = (coord(line[32:41]), coord(line[41:51]))
                 if c[0] is not None:
-                    enrt[(line[13:18].strip(), line[19:21])] = c + ('W',)
+                    enrt[(line[13:18].strip(), line[19:21])] = c + ('W', line[19:21], '')
             elif sec == 'D':
                 key = (line[13:17].strip(), line[19:21])
                 c = (coord(line[32:41]), coord(line[41:51]))
@@ -66,17 +66,17 @@ def main(src, out):
                 if c[0] is None:
                     c = (coord(line[55:64]), coord(line[64:74]))
                 if c[0] is not None:
-                    navaid[key] = c + (kind,)
+                    navaid[key] = c + (kind, line[19:21], '')
             elif sec == 'P':
                 apt, sub = line[6:10].strip(), line[12]
                 if sub in 'CN':
                     c = (coord(line[32:41]), coord(line[41:51]))
                     if c[0] is not None:
-                        term[(apt, line[13:18].strip(), line[19:21])] = c + ('N' if sub == 'N' else 'W',)
+                        term[(apt, line[13:18].strip(), line[19:21])] = c + ('N' if sub == 'N' else 'W', line[19:21], apt)
                 elif sub == 'A':
                     c = (coord(line[32:41]), coord(line[41:51]))
                     if c[0] is not None:
-                        aptref[apt] = c + ('A',)
+                        aptref[apt] = c + ('A', line[10:12], '')
                 elif sub == 'G' and line[38] in '01':
                     c = (coord(line[32:41]), coord(line[41:51]))
                     if c[0] is not None:
@@ -91,7 +91,7 @@ def main(src, out):
             return term.get((apt, ident, region))
         if s1 == 'P' and s2 == 'G':
             r = runways[apt].get(ident[2:])
-            return (r[0], r[1], 'R') if r else None
+            return (r[0], r[1], 'R', '', apt) if r else None
         if s1 == 'P' and s2 == 'A':
             return aptref.get(ident)
         if s1 == 'E':
@@ -114,7 +114,7 @@ def main(src, out):
             if fix and fix not in fixes:
                 c = lookup(apt, fix, region, s1, s2)
                 if c:
-                    fixes[fix] = [c[0], c[1], c[2]]
+                    fixes[fix] = [c[0], c[1], c[2], c[3].strip(), c[4]]
             desc = l[39:43]
             leg = [fix, l[47:49].strip(), l[82].strip(), alt(l[84:89]), alt(l[89:94]), num(l[99:102]),
                    num(l[70:74], 10), num(l[74:78], 10), desc[3].strip() + ('m' if desc[2] == 'M' else ''), l[43].strip()]

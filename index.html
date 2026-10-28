@@ -216,6 +216,9 @@ td.cons{color:var(--accent)}
 .wx{white-space:pre-wrap;word-break:break-word;font-size:11.5px;background:var(--bg);border:1px solid var(--line);border-radius:5px;padding:7px 8px;margin:4px 0 8px}
 .wx b{color:var(--accent)}
 .warnl{color:var(--bad);font-weight:600;margin:2px 0}
+.ofp details{border:1px solid var(--line);border-radius:5px;padding:6px 8px;margin:4px 0;font-family:var(--f-body);font-size:12.5px}
+.ofp details summary{cursor:pointer;color:var(--ink)}
+.ofp details p{margin:6px 0 2px;color:var(--muted);line-height:1.5}
 .ofpbar{display:flex;gap:8px;flex-wrap:wrap;padding:12px 16px;border-top:1px solid var(--line)}
 .appinfo{padding:8px 12px;border-bottom:1px solid var(--line);font:400 11.5px var(--f-mono);color:var(--muted);line-height:1.5}
 .appinfo b{color:var(--route);font-weight:600}
@@ -355,6 +358,7 @@ tfoot td{font-weight:500;border-bottom:0;color:var(--muted)}
         <div class="doc" id="ofp"></div>
         <div class="ofpbar">
           <button type="button" class="btn primary" id="toMap">Open map</button>
+          <button type="button" class="btn" id="toSimbrief">Send to SimBrief</button>
           <button type="button" class="btn" id="exportPln">Export .pln for MSFS</button>
         </div>
       </aside>
@@ -1078,7 +1082,7 @@ function procItems(legs,pd,seg,name,role){
     if(fx&&!/^H[AFM]$/.test(g[1])){
       const last=out[out.length-1];
       if(last&&last.ident===fix){if(c)last.cons=c;if(g[8])last.role=g[8];return;}
-      out.push({ident:fix,type:FXTYPE[fx[2]]||'Intersection',pos:{lat:fx[0],lon:fx[1]},airway:'',dep:'',arr:'',app:'',[role]:name,seg,segName:name,cons:c,role:g[8]||'',procLeg:true,a1:g[3],ad:g[2]});
+      out.push({ident:fix,type:FXTYPE[fx[2]]||'Intersection',pos:{lat:fx[0],lon:fx[1]},region:fx[3]||'',icaoApt:fx[4]||'',airway:'',dep:'',arr:'',app:'',[role]:name,seg,segName:name,cons:c,role:g[8]||'',procLeg:true,a1:g[3],ad:g[2]});
     }else out.push({strip:true,text:legText(g),seg,segName:name});});
   return out;}
 function rebuild(){
@@ -1397,14 +1401,14 @@ wireSearch('fAltn','fAltnAc',()=>plan&&plan.brief?plan.brief.altn:'',code=>{plan
 let NAV=null,navP=null,GRAPH=null,GRAPH_BY_ID=null,routeDirty=false;
 function loadNav(){if(!navP)navP=fetch('data/nav.json').then(r=>r.ok?r.json():null).then(d=>NAV=d).catch(()=>null);return navP;}
 const KIND={W:'Intersection',V:'VOR',N:'NDB',A:'Airport',U:'User'};
-function fixRef(r){const [id,k]=r.split('#'),i=+k||0,f=NAV.fixes[id][i];return {ident:id,i,lat:f[0],lon:f[1],kind:f[2]};}
+function fixRef(r){const [id,k]=r.split('#'),i=+k||0,f=NAV.fixes[id][i];return {ident:id,i,lat:f[0],lon:f[1],kind:f[2],region:f[3]||''};}
 function nearestFix(ident,ref){const c=NAV.fixes[ident];if(!c)return null;let best=null,bd=1e9;
-  c.forEach((f,i)=>{const d=gcDist(ref,{lat:f[0],lon:f[1]});if(d<bd){bd=d;best={ident,i,lat:f[0],lon:f[1],kind:f[2]};}});return best;}
+  c.forEach((f,i)=>{const d=gcDist(ref,{lat:f[0],lon:f[1]});if(d<bd){bd=d;best={ident,i,lat:f[0],lon:f[1],kind:f[2],region:f[3]||''};}});return best;}
 function airwayBetween(name,a,bIdent){
   for(const seg of NAV.airways[name]||[]){const ids=seg.map(r=>r.split('#')[0]),ia=ids.indexOf(a.ident),ib=ids.indexOf(bIdent);
     if(ia>=0&&ib>=0&&ia!==ib)return (ia<ib?seg.slice(ia+1,ib+1):seg.slice(ib,ia).reverse()).map(fixRef);}
   return null;}
-const toWp=f=>({ident:f.ident,type:KIND[f.kind]||'Intersection',pos:{lat:f.lat,lon:f.lon},airway:f.airway||'',dep:'',arr:'',app:'',seg:'ENR',segName:'Enroute'});
+const toWp=f=>({ident:f.ident,type:KIND[f.kind]||'Intersection',pos:{lat:f.lat,lon:f.lon},region:f.region||'',airway:f.airway||'',dep:'',arr:'',app:'',seg:'ENR',segName:'Enroute'});
 async function parseRoute(text){
   if(!(await loadNav()))return {err:'The route database loads on the web version only.'};
   const s=plan.setup,dp=getProcs(s.dep),ap=getProcs(s.arr);
@@ -1427,7 +1431,7 @@ async function parseRoute(text){
       res.unknown.push(awy+' (doesn\'t join '+prev.ident+' and '+tok+')');awy=null;}
     res.route.push({...f,airway:''});ref={lat:f.lat,lon:f.lon};}
   return res;}
-function buildGraph(){const nodes=new Map(),add=r=>{let n=nodes.get(r);if(!n){const f=fixRef(r);n={r,ident:f.ident,lat:f.lat,lon:f.lon,kind:f.kind,e:[]};nodes.set(r,n);}return n;};
+function buildGraph(){const nodes=new Map(),add=r=>{let n=nodes.get(r);if(!n){const f=fixRef(r);n={r,ident:f.ident,lat:f.lat,lon:f.lon,kind:f.kind,region:f.region,e:[]};nodes.set(r,n);}return n;};
   for(const [name,segs] of Object.entries(NAV.airways)){const lv=NAV.levels[name];
     segs.forEach(seg=>{for(let i=1;i<seg.length;i++){const a=add(seg[i-1]),b=add(seg[i]),d=gcDist(a,b);a.e.push([b,d,name,lv]);b.e.push([a,d,name,lv]);}});}
   GRAPH=[...nodes.values()];GRAPH_BY_ID=new Map();GRAPH.forEach(n=>{const l=GRAPH_BY_ID.get(n.ident);if(l)l.push(n);else GRAPH_BY_ID.set(n.ident,[n]);});}
@@ -1478,7 +1482,7 @@ function routeSearch(cx,startList,endList,sidFilter){
     if(dd<220){const c=x.c+dd*1.05+y.c;if(c<bestCost&&c<(dctBest?.cost??Infinity))dctBest={route:[],sid:x.sid,sidTr:x.tr,star:y.star,starTr:y.tr,dist:x.d+dd+y.d,cost:c};}}));
   if(dctBest)return dctBest;
   if(!best)return null;
-  const path=[];let first=best;for(let n=best;n;){const p=prev.get(n);path.unshift({ident:n.ident,lat:n.lat,lon:n.lon,kind:n.kind,airway:p?p[1]:''});first=n;n=p?p[0]:null;}
+  const path=[];let first=best;for(let n=best;n;){const p=prev.get(n);path.unshift({ident:n.ident,lat:n.lat,lon:n.lon,kind:n.kind,region:n.region,airway:p?p[1]:''});first=n;n=p?p[0]:null;}
   const si=sm.get(first),ei=em.get(best);let dist=si.d+ei.d;for(let i=1;i<path.length;i++)dist+=gcDist(path[i-1],path[i]);
   return {route:path,sid:si.sid||'',sidTr:si.tr||'',star:ei.star||'',starTr:ei.tr||'',dist,cost:bestCost};}
 function routeText(r){const t=[];
@@ -1580,6 +1584,7 @@ function renderOfp(){
   const wx=id=>{if(!id)return '';const w=wxCache[id];if(!w)return '';if(w.loading)return `<div class="wx">${id} · loading…</div>`;
     if(w.err)return `<div class="wx">${id} · weather didn't load. Use Refresh to try again.</div>`;
     return `<div class="wx"><b>${esc(id)}</b> ${esc(w.metar||'No METAR available')}${w.taf?'\n'+esc(w.taf):''}</div>`;};
+  const openD=[...$('ofp').querySelectorAll('details')].map(d=>d.open);
   $('ofp').innerHTML=`
     <h3>${esc(call||'Flight')} · ${esc(plan.depId)}–${esc(plan.dstId)}</h3>
     <div class="sub">${esc(b.date||'')} · ${esc(a[0])}${b.reg?' · '+esc(b.reg):''}</div>
@@ -1599,8 +1604,11 @@ function renderOfp(){
       ${row('Block',o.block,o.endur,'tot')}</table></div>
     <div class="sec"><h4>Weights (lb)</h4><table class="ot"><tr><th></th><th>Planned</th><th>Max</th><th>Margin</th></tr>
       ${wrow('Payload ('+(b.pax||0)+' pax)',o.payload)}${wrow('Zero fuel',o.zfw,b.mzfw)}${wrow('Takeoff',o.tow,b.mtow)}${wrow('Landing',o.lw,b.mlw)}</table></div>
+    ${fmcSheet()}
     <div class="sec"><h4>Weather <button type="button" id="wxRefresh">Refresh</button></h4>${wx(plan.depId)}${wx(plan.dstId)}${b.altn?wx(b.altn):''}</div>
+    ${loadGuide()}
     <div class="sec sub">Planning estimates for flight simulation. Winds aloft use the average you enter.</div>`;
+  $('ofp').querySelectorAll('details').forEach((d,i)=>{if(openD[i])d.open=true;});
   $('wxRefresh').onclick=()=>{for(const k in atisCache)delete atisCache[k];autoKey=[plan.depId,plan.dstId,plan.brief.altn].join(',');autoRunways(true).then(ch=>{if(!ch)loadWx(true);});};
   $('ofpHint').textContent=warn.length?warn.length+' item'+(warn.length>1?'s':'')+' to check':'Ready';$('ofpHint').className='hint'+(warn.length?' bad':'');
 }
@@ -1689,16 +1697,66 @@ $('fExtraMin').addEventListener('input',e=>{if(!plan)return;const b=plan.brief;b
 document.querySelectorAll('[data-xmin],[data-xclear]').forEach(btn=>btn.addEventListener('click',()=>{if(!plan)return;const b=plan.brief;
   b.extra=btn.dataset.xclear?0:Math.round((+b.extra||0)+(+btn.dataset.xmin)/60*(+b.burn||0));renderPlanner();persistSoon();}));
 
+
+/* ---------- getting the plan into the aircraft ---------- */
+function enrouteRuns(){ // [[via,to]] for the enroute part, airways collapsed
+  const rows=[];let cur=null;
+  plan.wps.filter(p=>p.seg==='ENR').forEach(p=>{if(p.airway&&cur&&cur[0]===p.airway){cur[1]=p.ident;return;}cur=[p.airway||'DIRECT',p.ident];rows.push(cur);});
+  return rows;}
+function sbRoute(){const s=plan.setup,t=[];
+  if(plan.sidObj){t.push(plan.sidObj.id);if(s.sidTr)t.push(s.sidTr);}
+  enrouteRuns().forEach(([via,to])=>{if(via!=='DIRECT')t.push(via);t.push(to);});
+  if(plan.starObj){if(s.starTr)t.push(s.starTr);t.push(plan.starObj.id);}
+  return t.filter((x,i)=>x!==t[i-1]).join(' ');}
+function fmcSheet(){
+  const s=plan.setup,runs=enrouteRuns(),rows=[];
+  if(plan.sidObj)rows.push([plan.sidObj.id+' (SID)',s.sidTr||(plan.wps.filter(w=>w.seg==='SID').pop()||{}).ident||'']);
+  let first=true;runs.forEach(([via,to])=>{if(first&&rows.length&&rows[rows.length-1][1]===to){first=false;return;}first=false;rows.push([via,to]);});
+  if(plan.starObj)rows.push([plan.starObj.id+' (STAR)',s.starTr||'']);
+  const dep=`RWY ${plan.depRwy||'—'}${plan.sidObj?' · '+plan.sidObj.id+(s.sidTr?' · '+s.sidTr:''):''}`;
+  const arr=`${plan.starObj?plan.starObj.id+(s.starTr?' · '+s.starTr:'')+' · ':''}${plan.appObj?plan.appObj.name+(s.appTr?' via '+s.appTr:''):'Approach not set'} · RWY ${plan.dstRwy||'—'}`;
+  return `<div class="sec"><h4>FMC entry</h4>
+    <div class="kv"><div><span>Departure</span>${esc(dep)}</div><div><span>Arrival</span>${esc(arr)}</div><div><span>Cruise</span>${fmtAlt(plan.prof.crz)}</div></div>
+    <table class="ot" style="margin-top:6px"><tr><th>Via</th><th style="text-align:left">To</th></tr>
+    ${rows.map(([v,t])=>`<tr><td>${esc(v)}</td><td style="text-align:left">${esc(t)}</td></tr>`).join('')||'<tr><td>DIRECT</td><td style="text-align:left">'+esc(plan.dstId)+'</td></tr>'}</table>
+    <div class="sub" style="margin-top:4px">SimBrief route: <span class="rt">${esc(sbRoute()||'DCT')}</span></div></div>`;}
+function loadGuide(){return `<div class="sec"><h4>Load into your aircraft</h4>
+  <details><summary><b>Default airliners and GA</b> (A320neo, 737 MAX, 787, 747, CJ4, Longitude, TBM, King Air)</summary>
+    <p>Export .pln for MSFS, then on the MSFS 2024 world map open the flight plan menu, choose Load, and pick the file. The plan, runways and procedures go into the FMS automatically. Or use Send to SimBrief and import it from the aircraft's EFB.</p></details>
+  <details><summary><b>PMDG 737 / 777</b></summary>
+    <p>Send to SimBrief and press Generate. Put your SimBrief username in the PMDG settings, then use the FMC route request (uplink) to load the route and performance data.</p></details>
+  <details><summary><b>FlyByWire A32NX</b></summary>
+    <p>Send to SimBrief and press Generate. In the flyPad, link SimBrief (Settings, ATSU/AOC) and import the flight on the Dashboard, then on the MCDU press INIT REQUEST on the INIT A page.</p></details>
+  <details><summary><b>Fenix A320</b></summary>
+    <p>Send to SimBrief and press Generate. Set your SimBrief ID in the Fenix EFB, then on the MCDU INIT A page use INIT REQ to uplink the route.</p></details>
+  <details><summary><b>iniBuilds A310 / A300 / A350</b></summary>
+    <p>Send to SimBrief and press Generate. Set your SimBrief ID in the aircraft's tablet or settings, then request the flight plan from the FMS (INIT request). The A350 can also import from its EFB.</p></details>
+  <div class="sub" style="margin-top:4px">Menu names change between aircraft updates. Any FMC can also take the route by hand from the FMC entry table above.</div></div>`;}
+function simbriefUrl(){
+  const b=plan.brief,o=ofpCalc(),p=new URLSearchParams(),M=['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'],d=o.off;
+  const set=(k,v)=>{if(v!==''&&v!=null&&!(typeof v==='number'&&!isFinite(v)))p.set(k,v);};
+  set('airline',(b.airline||'').toUpperCase());set('fltnum',b.num);set('callsign',(b.call||'').toUpperCase());
+  if(b.ac&&b.ac!=='CUST')set('type',b.ac);set('reg',(b.reg||'').toUpperCase());
+  set('orig',plan.depId);set('dest',plan.dstId);set('origrwy',plan.depRwy);set('destrwy',plan.dstRwy);set('altn',b.altn);
+  set('route',sbRoute());set('find_sidstar',plan.sidObj||plan.starObj?0:'');
+  set('fl',Math.round(+b.crz||0));set('pax',+b.pax||0);set('cargo',((+b.cargo||0)/1000).toFixed(1));set('units','LBS');
+  set('addedfuel',((+b.extra||0)/1000).toFixed(1));set('contpct',((+b.cont||0)/100).toFixed(2));set('resvrule',+b.res||'');
+  if(!isNaN(d)){set('date',String(d.getUTCDate()).padStart(2,'0')+M[d.getUTCMonth()]+String(d.getUTCFullYear()).slice(2));set('deph',d.getUTCHours());set('depm',d.getUTCMinutes());}
+  const ete=Math.round(o.ete*60);set('steh',Math.floor(ete/60));set('stem',ete%60);set('taxiout',+b.taxiOut||'');
+  return 'https://dispatch.simbrief.com/options/custom?'+p.toString();}
+$('toSimbrief').onclick=()=>{if(!plan)return;const a=document.createElement('a');a.href=simbriefUrl();a.target='_blank';a.rel='noopener';document.body.appendChild(a);a.click();a.remove();
+  toast('Opened SimBrief with your flight. Check it and press Generate, then uplink in the aircraft.');};
+
 /* ---------- export for MSFS ---------- */
 function exportPln(){
-  const s=plan.setup,w=plan.wps,b=plan.brief,pos=(p,alt)=>`${dms(p.lat,'N','S')},${dms(p.lon,'E','W')},+${(alt||0).toFixed(2).padStart(9,'0')}`;
+  const s=plan.setup,w=plan.wps.filter(p=>p.seg!=='APP'),b=plan.brief,pos=(p,alt)=>`${dms(p.lat,'N','S')},${dms(p.lon,'E','W')},+${(alt||0).toFixed(2).padStart(9,'0')}`;
   const rwy=id=>{const m=String(id||'').match(/^0?(\d{1,2})([LRC])?/);return m?{n:m[1],d:{L:'LEFT',R:'RIGHT',C:'CENTER'}[m[2]]||''}:null;};
   const T={APT:'Airport',VOR:'VOR',NDB:'NDB',FIX:'Intersection',USR:'User'};
   const wpXml=w.map((p,i)=>{const t=shortType(p.type);let x=`<ATCWaypoint id="${esc(p.ident)}"><ATCWaypointType>${T[t]}</ATCWaypointType><WorldPosition>${pos(p.pos,i===0?plan.depElev:i===w.length-1?plan.dstElev:0)}</WorldPosition>`;
     if(p.airway)x+=`<ATCAirway>${esc(p.airway)}</ATCAirway>`;
     if(p.seg==='SID'&&plan.sidObj)x+=`<DepartureFP>${esc(plan.sidObj.id)}</DepartureFP>`;
     if(p.seg==='STAR'&&plan.starObj)x+=`<ArrivalFP>${esc(plan.starObj.id)}</ArrivalFP>`;
-    return x+`<ICAO><ICAOIdent>${esc(p.ident)}</ICAOIdent></ICAO></ATCWaypoint>`;}).join('\n');
+    return x+`<ICAO>${p.region&&t!=='APT'?`<ICAORegion>${esc(p.region)}</ICAORegion>`:''}<ICAOIdent>${esc(p.ident)}</ICAOIdent>${p.icaoApt?`<ICAOAirport>${esc(p.icaoApt)}</ICAOAirport>`:''}</ICAO></ATCWaypoint>`;}).join('\n');
   const dr=rwy(plan.depRwy),ar=rwy(plan.dstRwy),ao=plan.appObj;
   const appType=ao?({ILS:'ILS',LOC:'LOCALIZER',RNAV:'RNAV',VOR:'VOR',NDB:'NDB',LDA:'LDA',SDF:'SDF',GPS:'GPS'}[ao.name.split(/[ /(]/)[0]]||'RNAV'):'';
   const suffix=ao?((ao.name.match(/ ([XYZW]) /)||[])[1]||''):'';

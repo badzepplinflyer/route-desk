@@ -40,7 +40,7 @@ def main(src, out):
         if c[0] is None or k in keyidx:
             continue
         keyidx[k] = len(fixes[k[0]])
-        fixes[k[0]].append([round(c[0], 5), round(c[1], 5), kind])
+        fixes[k[0]].append([round(c[0], 5), round(c[1], 5), kind, k[1].strip()])
     airways, levels = {}, {}
     for name, recs in awy.items():
         recs.sort()
