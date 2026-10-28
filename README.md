@@ -7,7 +7,8 @@ Live at https://badzepplinflyer.github.io/route-desk/
 Data:
 - Airports and runways: [OurAirports](https://ourairports.com/data/) (public domain), with runway geometry from OpenStreetMap where available
 - Airport layouts: © OpenStreetMap contributors (via Overpass API)
+- Procedures (SIDs, STARs, approaches): FAA CIFP (public domain), refreshed each 28-day cycle by a GitHub Action
 - Elevation: AWS Terrain Tiles
 - Maps: OpenTopoMap, Esri
 
-Approaches are generic straight-in procedures for planning, not published charts. For flight simulation only.
+Procedures cover US airports only; elsewhere the app offers generic straight-in approaches. Always check the chart for minimums. For flight simulation only.
