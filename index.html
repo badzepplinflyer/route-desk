@@ -1650,7 +1650,8 @@ function renderOfp(){
     plan.appObj?plan.appObj.name+(s.appTr?' via '+s.appTr:''):(plan.appInfo?plan.appInfo.lab:''),plan.dstRwy&&'RWY '+plan.dstRwy+src2(s.arrRwyMode,rw.arr)].filter(Boolean);
   const wx=id=>{if(!id)return '';const w=wxCache[id];if(!w)return '';if(w.loading)return `<div class="wx">${id} · loading…</div>`;
     if(w.err)return `<div class="wx">${id} · weather didn't load. Use Refresh to try again.</div>`;
-    return `<div class="wx"><b>${esc(id)}</b> ${esc(w.metar||'No METAR available')}${w.taf?'\n'+esc(w.taf):''}${w.src?'\n(METAR via '+w.src+')':''}</div>`;};
+    const at=atisCache[id],atx=at&&(at.vatsim?at.vatsim.map(a=>a.callsign+(a.code?' '+a.code:'')+': '+a.text).join('\n'):at.text);
+    return `<div class="wx"><b>${esc(id)}</b> ${esc(w.metar||'No METAR available')}${w.taf?'\n'+esc(w.taf):''}${w.src?'\n(METAR via '+w.src+')':''}${atx?'\n\n'+(at.vatsim?'VATSIM ATIS · ':'ATIS · ')+esc(atx):''}</div>`;};
   const openD=[...$('ofp').querySelectorAll('details')].map(d=>d.open);
   $('ofp').innerHTML=`
     <h3>${esc(call||'Flight')} · ${esc(plan.depId)}–${esc(plan.dstId)}</h3>
@@ -1708,19 +1709,32 @@ async function fetchAtis(id){
         if(x.type==='dep')res.dep.push(...p.dep,...p.both);else if(x.type==='arr')res.arr.push(...p.arr,...p.both);
         else{res.arr.push(...p.arr,...p.both);res.dep.push(...p.dep,...p.both);}
         res.text+=(res.text?'\n':'')+(x.datis||'');});}}catch(e){}
+  res.src=res.arr.length||res.dep.length?'ATIS':'';
+  if(!res.src){ // controllers online on VATSIM publish their ATIS in the network data feed
+    const v=await vatsimAtis(id);
+    v.forEach(a=>{const p=parseAtis(a.text),k=/_D_ATIS$/.test(a.callsign)?'dep':/_A_ATIS$/.test(a.callsign)?'arr':'both';
+      if(k==='dep')res.dep.push(...p.dep,...p.both);else if(k==='arr')res.arr.push(...p.arr,...p.both);else{res.arr.push(...p.arr,...p.both);res.dep.push(...p.dep,...p.both);}});
+    if(v.length){res.vatsim=v;res.src=res.arr.length||res.dep.length?'VATSIM ATIS':'';}}
   res.arr=[...new Set(res.arr)];res.dep=[...new Set(res.dep)];atisCache[id]=res;return res;}
+let vatsimFeed=null;
+async function vatsimAtis(id){
+  try{if(!vatsimFeed||Date.now()-vatsimFeed.t>120000){const c=new AbortController(),tm=setTimeout(()=>c.abort(),12000);
+      const j=await (await fetch('https://data.vatsim.net/v3/vatsim-data.json',{signal:c.signal})).json();clearTimeout(tm);
+      vatsimFeed={t:Date.now(),atis:(j.atis||[]).map(a=>({callsign:String(a.callsign||'').toUpperCase(),text:(a.text_atis||[]).join(' '),code:a.atis_code||''}))};}
+    return vatsimFeed.atis.filter(a=>a.callsign.startsWith(id+'_')&&a.text);}
+  catch(e){return [];}}
 function parseAtis(text){
   const out={arr:[],dep:[],both:[]},T=String(text).toUpperCase().replace(/\s+/g,' ');
   T.split(/[.;]/).forEach(sen=>{
     const m=sen.match(/\b(?:RWYS?|RY|RUNWAYS?)\s+[0-9LRC ,&\/]+(?:\s*(?:AND|OR)\s*[0-9LRC ,&\/]+)*/g);if(!m)return;
     const ids=[];m.forEach(x=>(x.replace(/^\S+\s+/,'').match(/\b\d{1,2}[LRC]?\b/g)||[]).forEach(r=>{const n=+r.replace(/\D/g,'');if(n>0&&n<=36)ids.push(r.replace(/^0/,''));}));
     if(!ids.length)return;
-    const land=/\b(LANDING|LNDG|LDG|ARRIVING|ARRIVALS?|ARVNG|APCHS?|APPROACH(ES)?|VISUAL|ILS|RNAV|EXPECT)\b/.test(sen),
+    const land=/\b(LANDING|LNDG|LDG|ARRIVING|ARRIVALS?|ARVNG|APCHS?|APPROACH(ES)?|VISUAL|ILS|RNAV)\b/.test(sen),
       dep=/\b(DEPARTING|DEPTING|DEPG|DEPTG|DPTG|DEPARTURES?|DEPS?|DEPTS?|TKOF|TAKE ?OFF)\b/.test(sen);
     if(land&&dep)out.both.push(...ids);else if(land)out.arr.push(...ids);else if(dep)out.dep.push(...ids);});
   return out;}
 function metarWind(metar){const m=String(metar||'').match(/\b(\d{3}|VRB)(\d{2,3})(?:G(\d{2,3}))?KT\b/);if(!m)return null;return {dir:m[1]==='VRB'?null:+m[1],spd:+m[2],gust:m[3]?+m[3]:0};}
-function pickRunway(apt,kind,atisIds,wind,pd){
+function pickRunway(apt,kind,atisIds,wind,pd,atisSrc){
   if(!apt||!apt.ends.length)return null;
   const hasIls=e=>pd&&pd.app.some(a=>normRwy(a.rw)===normRwy(e.id)&&/^ILS/.test(a.name));
   // airports publish most procedures for their main flow, so count what each runway end is served by
@@ -1728,7 +1742,7 @@ function pickRunway(apt,kind,atisIds,wind,pd){
     :pd.app.filter(a=>normRwy(a.rw)===normRwy(e.id)).length+pd.star.filter(p=>Object.keys(p.rw).some(k=>matchRw(k,e.id))).length;
   const score=e=>served(e)*3+(kind==='arr'&&hasIls(e)?4:0)+(e.len||0)/4000;
   if(atisIds&&atisIds.length){const c=apt.ends.filter(e=>atisIds.some(r=>normRwy(r)===normRwy(e.id)));
-    if(c.length)return {id:c.sort((a,b)=>score(b)-score(a))[0].id,why:'ATIS'};}
+    if(c.length)return {id:c.sort((a,b)=>score(b)-score(a))[0].id,why:atisSrc||'ATIS'};}
   if(wind&&wind.dir!=null&&wind.spd>=4){
     const hw=e=>wind.spd*Math.cos((wind.dir-e.course)*D2R),best=Math.max(...apt.ends.map(hw));
     const c=apt.ends.filter(e=>hw(e)>=best-4&&hw(e)>-2),e=(c.length?c:apt.ends).sort((a,b)=>score(b)-score(a))[0];
@@ -1748,7 +1762,7 @@ async function autoRunways(force){
     await loadWx(!!force);
     const pick=async(code,kind)=>{const apt=aptByCode(code);if(!apt)return null;const at=await fetchAtis(apt.code.toUpperCase());
       const w=metarWind((wxCache[String(code).toUpperCase()]||{}).metar);
-      return pickRunway(apt,kind,kind==='dep'?at.dep:at.arr,w,getProcs(code));};
+      return pickRunway(apt,kind,kind==='dep'?at.dep:at.arr,w,getProcs(code),at.src);};
     plan.rwyWhy=plan.rwyWhy||{};
     if(doDep){const r=await pick(s.dep,'dep');if(r){plan.rwyWhy.dep=r.why;if(normRwy(r.id)!==normRwy(s.depRwy)){s.depRwy=r.id;changed=true;
       const dp=getProcs(s.dep),o=dp&&s.sid&&dp.sid.find(x=>x.id===s.sid);if(o&&!sidFits(o,s.depRwy)){s.sid='';s.sidTr='';}}}}
@@ -1877,7 +1891,7 @@ addEventListener('hashchange',()=>showView(location.hash==='#map'?'map':'plan'))
 
 
 /* ---------- tell the person when a newer version is published ---------- */
-const APP_VERSION='2026-10-28.5';
+const APP_VERSION='2026-10-28.6';
 async function checkForUpdate(){try{const t=await (await fetch(location.pathname+'?v='+Date.now(),{cache:'no-store'})).text();
   const m=t.match(/APP_VERSION='([^']+)'/);if(m&&m[1]!==APP_VERSION)toast('A newer version of Route Desk is available',false,{label:'Reload',fn:()=>location.reload(),ms:60000});}catch(e){}}
 setTimeout(checkForUpdate,8000);setInterval(checkForUpdate,10*60000);
