@@ -1632,7 +1632,10 @@ async function loadWx(force){const b=plan.brief,ids=[...new Set([plan.depId,plan
   try{const [m,t]=await Promise.all(['metar','taf'].map(k=>fetch(`https://aviationweather.gov/api/data/${k}?format=raw&ids=${key}`).then(r=>{if(!r.ok)throw 0;return r.text();})));
     const tafs=t.split(/\n(?=TAF\b|\S)/).map(x=>x.trim()).filter(Boolean);
     ids.forEach(id=>{const re=new RegExp('(^|\\s)'+id+'\\s');wxCache[id]={metar:(m.split('\n').find(l=>re.test(l))||'').trim(),taf:tafs.find(x=>re.test(x))||''};});
-  }catch(e){ids.forEach(id=>wxCache[id]={err:true});wxKey='';}
+  }catch(e){
+    const got=await Promise.all(ids.map(id=>fetch('https://metar.vatsim.net/'+id).then(r=>r.ok?r.text():'').catch(()=>'')));
+    ids.forEach((id,i)=>{const m=(got[i]||'').trim().split('\n')[0];wxCache[id]=m?{metar:m,taf:'',src:'VATSIM'}:{err:true};});
+    if(got.every(x=>!x))wxKey='';}
   renderOfp();}
 function renderOfp(){
   if(!plan||!plan.brief||!plan.total&&plan.total!==0)return;const b=plan.brief,o=ofpCalc(),s=plan.setup,a=ACFT[b.ac]||ACFT.CUST;
@@ -1647,7 +1650,7 @@ function renderOfp(){
     plan.appObj?plan.appObj.name+(s.appTr?' via '+s.appTr:''):(plan.appInfo?plan.appInfo.lab:''),plan.dstRwy&&'RWY '+plan.dstRwy+src2(s.arrRwyMode,rw.arr)].filter(Boolean);
   const wx=id=>{if(!id)return '';const w=wxCache[id];if(!w)return '';if(w.loading)return `<div class="wx">${id} · loading…</div>`;
     if(w.err)return `<div class="wx">${id} · weather didn't load. Use Refresh to try again.</div>`;
-    return `<div class="wx"><b>${esc(id)}</b> ${esc(w.metar||'No METAR available')}${w.taf?'\n'+esc(w.taf):''}</div>`;};
+    return `<div class="wx"><b>${esc(id)}</b> ${esc(w.metar||'No METAR available')}${w.taf?'\n'+esc(w.taf):''}${w.src?'\n(METAR via '+w.src+')':''}</div>`;};
   const openD=[...$('ofp').querySelectorAll('details')].map(d=>d.open);
   $('ofp').innerHTML=`
     <h3>${esc(call||'Flight')} · ${esc(plan.depId)}–${esc(plan.dstId)}</h3>
@@ -1720,14 +1723,21 @@ function metarWind(metar){const m=String(metar||'').match(/\b(\d{3}|VRB)(\d{2,3}
 function pickRunway(apt,kind,atisIds,wind,pd){
   if(!apt||!apt.ends.length)return null;
   const hasIls=e=>pd&&pd.app.some(a=>normRwy(a.rw)===normRwy(e.id)&&/^ILS/.test(a.name));
-  const score=e=>(e.len||0)/1000+(kind==='arr'&&hasIls(e)?6:0);
+  // airports publish most procedures for their main flow, so count what each runway end is served by
+  const served=e=>!pd?0:kind==='dep'?pd.sid.filter(p=>Object.keys(p.rw).some(k=>matchRw(k,e.id))).length
+    :pd.app.filter(a=>normRwy(a.rw)===normRwy(e.id)).length+pd.star.filter(p=>Object.keys(p.rw).some(k=>matchRw(k,e.id))).length;
+  const score=e=>served(e)*3+(kind==='arr'&&hasIls(e)?4:0)+(e.len||0)/4000;
   if(atisIds&&atisIds.length){const c=apt.ends.filter(e=>atisIds.some(r=>normRwy(r)===normRwy(e.id)));
     if(c.length)return {id:c.sort((a,b)=>score(b)-score(a))[0].id,why:'ATIS'};}
   if(wind&&wind.dir!=null&&wind.spd>=4){
     const hw=e=>wind.spd*Math.cos((wind.dir-e.course)*D2R),best=Math.max(...apt.ends.map(hw));
     const c=apt.ends.filter(e=>hw(e)>=best-4&&hw(e)>-2),e=(c.length?c:apt.ends).sort((a,b)=>score(b)-score(a))[0];
     return {id:e.id,why:'wind '+String(wind.dir).padStart(3,'0')+'/'+wind.spd+(wind.gust?'G'+wind.gust:'')};}
-  return {id:[...apt.ends].sort((a,b)=>score(b)-score(a))[0].id,why:wind?'calm wind':'no live data'};}
+  let pool=[...apt.ends];
+  if(kind==='arr'&&pd){ // arrivals land the same way the airport departs: follow the departure flow
+    const sidsFor=e=>pd.sid.filter(p=>Object.keys(p.rw).some(k=>matchRw(k,e.id))).length,flow=[...apt.ends].sort((a,b)=>sidsFor(b)-sidsFor(a))[0];
+    if(flow&&sidsFor(flow)>0){const same=pool.filter(e=>Math.abs(((e.course-flow.course)%360+540)%360-180)<60);if(same.length)pool=same;}}
+  return {id:pool.sort((a,b)=>score(b)-score(a))[0].id,why:wind?'calm wind, main traffic flow':'main traffic flow (no live data)'};}
 let rwyBusy=false,autoKey='';
 async function autoRunways(force){
   if(!plan||rwyBusy)return false;const s=plan.setup;
@@ -1867,7 +1877,7 @@ addEventListener('hashchange',()=>showView(location.hash==='#map'?'map':'plan'))
 
 
 /* ---------- tell the person when a newer version is published ---------- */
-const APP_VERSION='2026-10-28.3';
+const APP_VERSION='2026-10-28.4';
 async function checkForUpdate(){try{const t=await (await fetch(location.pathname+'?v='+Date.now(),{cache:'no-store'})).text();
   const m=t.match(/APP_VERSION='([^']+)'/);if(m&&m[1]!==APP_VERSION)toast('A newer version of Route Desk is available',false,{label:'Reload',fn:()=>location.reload(),ms:60000});}catch(e){}}
 setTimeout(checkForUpdate,8000);setInterval(checkForUpdate,10*60000);
