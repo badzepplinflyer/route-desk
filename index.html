@@ -1758,10 +1758,10 @@ async function autoRunways(force){
   if(changed)applySetup(false);else renderPlanner();
   return changed;}
 function fillRwySel(sel,apt,cur,mode,why){
-  const o=[`<option value="AUTO">Auto (live)${mode!=='manual'&&cur?' · RWY '+esc(cur):''}</option>`];
+  const o=[`<option value="AUTO">Auto${mode!=='manual'&&cur?' · RWY '+esc(cur)+(why?' · '+esc(why):''):''}</option>`];
   if(apt)apt.ends.forEach(e=>o.push(`<option value="${esc(e.id)}">RWY ${esc(e.id)}${e.len?' · '+e.len.toLocaleString()+' ft':''}</option>`));
   sel.innerHTML=o.join('');sel.value=mode==='manual'&&cur?(findEnd(apt,cur)?.id||'AUTO'):'AUTO';
-  return mode!=='manual'?(why?'From '+why:'Waiting for live data'):'Set by you';}
+  return mode!=='manual'?(why?'Chosen automatically from '+why:'Waiting for weather'):'Set by you · choose Auto to follow live conditions';}
 $('fDepRwy').addEventListener('change',e=>{if(!plan)return;touched();const s=plan.setup;
   if(e.target.value==='AUTO'){s.depRwyMode='auto';autoRunways(true);}else{s.depRwyMode='manual';s.depRwy=e.target.value;
     const dp=getProcs(s.dep),o=dp&&s.sid&&dp.sid.find(x=>x.id===s.sid);if(o&&!sidFits(o,s.depRwy)){s.sid='';s.sidTr='';}applySetup(false);}});
@@ -1877,7 +1877,7 @@ addEventListener('hashchange',()=>showView(location.hash==='#map'?'map':'plan'))
 
 
 /* ---------- tell the person when a newer version is published ---------- */
-const APP_VERSION='2026-10-28.4';
+const APP_VERSION='2026-10-28.5';
 async function checkForUpdate(){try{const t=await (await fetch(location.pathname+'?v='+Date.now(),{cache:'no-store'})).text();
   const m=t.match(/APP_VERSION='([^']+)'/);if(m&&m[1]!==APP_VERSION)toast('A newer version of Route Desk is available',false,{label:'Reload',fn:()=>location.reload(),ms:60000});}catch(e){}}
 setTimeout(checkForUpdate,8000);setInterval(checkForUpdate,10*60000);
