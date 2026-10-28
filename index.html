@@ -174,6 +174,10 @@ td.cons{color:var(--accent)}
 .tab{border:0;background:transparent;color:var(--muted);font:600 12px var(--f-body);letter-spacing:.09em;text-transform:uppercase;padding:8px 18px;cursor:pointer}
 .tab.on{background:var(--ink);color:var(--panel)}
 .tab:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.pbar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 16px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-bottom:14px;position:sticky;top:env(safe-area-inset-top,0px);z-index:20}
+.pbar-t{font:600 13px var(--f-mono);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pbar-b{display:flex;gap:8px;flex-wrap:wrap}
+@media (max-width:1100px){.ofp{position:static}.ofp .doc{max-height:none}}
 .planner .pcols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,560px);gap:14px;align-items:start}
 @media (max-width:1100px){.planner .pcols{grid-template-columns:minmax(0,1fr)}}
 .pform{display:flex;flex-direction:column;gap:14px;min-width:0}
@@ -292,6 +296,15 @@ tfoot td{font-weight:500;border-bottom:0;color:var(--muted)}
   <div class="recents" id="recents" hidden><span class="lbl">Recent</span></div>
 
   <section class="planner" id="planView" hidden>
+    <div class="pbar">
+      <span class="pbar-t" id="pbarTitle">Plan your flight, then send it to the sim</span>
+      <div class="pbar-b">
+        <button type="button" class="btn" id="pbSimbrief">Send to SimBrief</button>
+        <button type="button" class="btn" id="pbExport">Export .pln for MSFS</button>
+        <button type="button" class="btn" id="pbFmc">FMC entry</button>
+        <button type="button" class="btn primary" id="pbMap">Open map</button>
+      </div>
+    </div>
     <div class="pcols">
       <div class="pform">
         <section class="panel">
@@ -1676,6 +1689,7 @@ function renderPlanner(){
   if($('fDepRwy')!==act)$('fDepRwyWhy').textContent=fillRwySel($('fDepRwy'),aptByCode(s.dep),plan.depRwy,s.depRwyMode,why.dep);
   if($('fArrRwy')!==act)$('fArrRwyWhy').textContent=fillRwySel($('fArrRwy'),aptByCode(s.arr),plan.dstRwy,s.arrRwyMode,why.arr);
   if($('fExtraMin')!==act)$('fExtraMin').value=b.burn?Math.round((+b.extra||0)/b.burn*60):0;
+  $('pbarTitle').textContent=`${plan.depId} → ${plan.dstId} · ${fmtN(plan.total)} nm · ${(ACFT[b.ac]||ACFT.CUST)[0]}`;
   renderOfp();
   const k=[plan.depId,plan.dstId,b.altn].join(',');if(k!==autoKey&&!rwyBusy){autoKey=k;autoRunways(false);}
 }
@@ -1838,6 +1852,10 @@ ${wpXml}
 }
 $('exportPln').onclick=()=>plan&&exportPln();
 
+
+$('pbSimbrief').onclick=()=>$('toSimbrief').click();$('pbExport').onclick=()=>$('exportPln').click();$('pbMap').onclick=()=>showView('map');
+$('pbFmc').onclick=()=>{const h=[...$('ofp').querySelectorAll('h4')].find(x=>/FMC entry/.test(x.textContent));if(h)h.scrollIntoView({behavior:'smooth',block:'start'});};
+
 /* ---------- views ---------- */
 let pendingFit=null;
 function showView(v){const m=v==='map';$('planView').hidden=m;$('mapView').hidden=!m;
@@ -1849,7 +1867,7 @@ addEventListener('hashchange',()=>showView(location.hash==='#map'?'map':'plan'))
 
 
 /* ---------- tell the person when a newer version is published ---------- */
-const APP_VERSION='2026-10-28.2';
+const APP_VERSION='2026-10-28.3';
 async function checkForUpdate(){try{const t=await (await fetch(location.pathname+'?v='+Date.now(),{cache:'no-store'})).text();
   const m=t.match(/APP_VERSION='([^']+)'/);if(m&&m[1]!==APP_VERSION)toast('A newer version of Route Desk is available',false,{label:'Reload',fn:()=>location.reload(),ms:60000});}catch(e){}}
 setTimeout(checkForUpdate,8000);setInterval(checkForUpdate,10*60000);
