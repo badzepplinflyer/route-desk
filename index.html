@@ -1,0 +1,691 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Route Desk</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+/* Layout: EFB split — terrain chart + vertical profile left, flight summary and nav log right; stacks on phones. */
+:root{
+  --bg:#e9eef0; --panel:#ffffff; --ink:#16212a; --muted:#5a6873;
+  --line:#cdd5da; --grid:#dbe3e3; --route:#c0177a; --route-soft:rgba(192,23,122,.14);
+  --accent:#0a6a86; --accent-ink:#ffffff; --warn:#a4560a; --bad:#c62828;
+  --terrain:#8a7a5c; --terrain-soft:rgba(138,122,92,.35);
+  --f-display:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;
+  --f-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){ :root{
+  --bg:#0b1015; --panel:#121920; --ink:#e2e9ee; --muted:#8796a3;
+  --line:#25313b; --grid:#1b2630; --route:#ff4cae; --route-soft:rgba(255,76,174,.16);
+  --accent:#4cc0da; --accent-ink:#06222a; --warn:#f0a24a; --bad:#ff6b6b;
+  --terrain:#a8946c; --terrain-soft:rgba(168,148,108,.32); color-scheme:dark }}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:14px;line-height:1.45}
+.wrap{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:max(14px,env(safe-area-inset-top,0px)) 28px;max-width:1500px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+
+header{display:flex;flex-wrap:wrap;align-items:center;gap:12px 20px;justify-content:space-between}
+.brand{display:flex;align-items:baseline;gap:14px;min-width:0;flex-wrap:wrap}
+.brand h1{font-family:var(--f-display);font-weight:700;font-size:26px;letter-spacing:.04em;text-transform:uppercase;margin:0;line-height:1}
+.brand h1 span{color:var(--route)}
+.plan-title{font-family:var(--f-mono);font-size:13px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:60vw}
+.badge{font-family:var(--f-mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;padding:2px 7px;border:1px solid var(--warn);color:var(--warn);border-radius:3px}
+.actions{display:flex;gap:8px;flex-wrap:wrap}
+.btn{font:500 13px var(--f-body);border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:8px 13px;border-radius:6px;cursor:pointer;display:inline-flex;align-items:center;gap:7px;white-space:nowrap}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn:focus-visible,input:focus-visible,select:focus-visible,.chip:focus-visible,tr:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+input[type=file]{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+
+.recents{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.recents .lbl{font:600 11px var(--f-body);letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+.chip{font:500 12px var(--f-mono);background:transparent;border:1px solid var(--line);color:var(--ink);padding:4px 9px;border-radius:999px;cursor:pointer}
+.chip.on{border-color:var(--route);color:var(--route)}
+
+.grid{display:grid;grid-template-columns:minmax(0,1fr) 440px;gap:14px;align-items:start}
+@media (max-width:980px){.grid{grid-template-columns:minmax(0,1fr)}}
+.col{display:flex;flex-direction:column;gap:14px;min-width:0}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:8px;min-width:0}
+.ph{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px 12px;padding:9px 12px;border-bottom:1px solid var(--line)}
+.ph h2{font:600 11px var(--f-body);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:0}
+.ph .hint{font:400 11px var(--f-mono);color:var(--muted)}
+.ph .hint.bad{color:var(--bad);font-weight:600}
+
+.maptools{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.maptools select,.maptools input{font:500 12px var(--f-mono);padding:5px 7px;border:1px solid var(--line);border-radius:5px;background:var(--bg);color:var(--ink)}
+.maptools input[type=number]{width:84px}
+.maptools label{display:inline-flex;align-items:center;gap:6px;font:600 10px var(--f-body);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.legend{display:inline-flex;gap:8px;align-items:center;font:500 11px var(--f-mono);color:var(--muted)}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:3px;vertical-align:-1px}
+
+#map{height:min(64vh,640px);min-height:360px;border-radius:0 0 8px 8px;background:var(--grid)}
+.leaflet-container{font-family:var(--f-body)}
+.leaflet-control-attribution{font-size:10px}
+.apthint{font:500 11px var(--f-mono);color:var(--muted)}
+.apthint.busy{color:var(--accent)}
+.twy,.rwy,.gate{position:absolute;transform:translate(-50%,-50%);white-space:nowrap;pointer-events:none;line-height:1.25}
+.twy{background:#111;color:#f5c400;border:1.5px solid #f5c400;font:700 11px var(--f-mono);padding:0 4px;border-radius:2px}
+.rwy{background:#c8102e;color:#fff;border:1.5px solid #fff;font:700 12px var(--f-mono);padding:1px 5px;border-radius:2px;box-shadow:0 1px 3px rgba(0,0,0,.35)}
+.rwy.plan{background:#c0177a;outline:2px solid #fff}
+.gate{background:rgba(10,106,134,.92);color:#fff;font:600 10px var(--f-mono);padding:0 3px;border-radius:2px}
+.diag{margin-top:5px;font:600 10px var(--f-body);letter-spacing:.08em;text-transform:uppercase;border:1px solid var(--line);background:var(--bg);color:var(--accent);padding:4px 8px;border-radius:4px;cursor:pointer}
+.diag:hover{border-color:var(--accent)}
+.diag:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.wpt{position:absolute;transform:translate(-50%,-50%);pointer-events:auto;cursor:pointer}
+.wpt svg{display:block;overflow:visible}
+.wpt span{position:absolute;left:13px;top:-19px;font:600 11.5px var(--f-mono);color:#16212a;background:rgba(255,255,255,.86);padding:0 4px;border-radius:2px;white-space:nowrap}
+.wpt.apt span{font-weight:700;font-size:13px}
+.wpt.sel span{color:#fff;background:#c0177a}
+.wpt.sel svg{filter:drop-shadow(0 0 4px #c0177a)}
+.leg{position:absolute;pointer-events:none;white-space:nowrap}
+.leg div{transform:translate(-50%,-125%);font:600 10.5px var(--f-mono);color:#c0177a;background:rgba(255,255,255,.86);padding:0 4px;border-radius:2px}
+.nmscale{background:rgba(255,255,255,.85);color:#16212a;font:600 10.5px var(--f-mono);padding:2px 6px 3px;border-radius:3px}
+.nmscale b{display:block;height:3px;background:#16212a;margin-top:2px}
+
+.profbox{height:200px;position:relative}
+.profbox canvas{display:block;width:100%;height:100%}
+
+.od{padding:12px;display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--line)}
+.od .apt{min-width:0}
+.od .icao{font:700 30px var(--f-display);letter-spacing:.05em;line-height:1}
+.od .nm{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.od .rwy-t{font:500 11px var(--f-mono);color:var(--accent)}
+.od .arrow{flex:1;height:2px;background:repeating-linear-gradient(90deg,var(--route) 0 8px,transparent 8px 13px);min-width:30px}
+.od .apt.r{text-align:right}
+.sum{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;background:var(--line);border-radius:0 0 8px 8px;overflow:hidden}
+.sum div{background:var(--panel);padding:10px 12px;min-width:0}
+.sum .k{font:600 10px var(--f-body);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.sum .v{font:500 18px var(--f-mono);font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sum .v small{font-size:12px;color:var(--muted);margin-left:3px}
+.sum .v.bad{color:var(--bad)}
+
+.set{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;padding:12px}
+.set label{display:flex;flex-direction:column;gap:4px;font:600 10px var(--f-body);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.set input{font:500 14px var(--f-mono);font-variant-numeric:tabular-nums;padding:7px 8px;border:1px solid var(--line);border-radius:5px;background:var(--bg);color:var(--ink);width:100%;min-width:0}
+.routestr{padding:0 12px 12px}
+.routestr code{display:block;font:400 12px var(--f-mono);background:var(--bg);border:1px solid var(--line);border-radius:5px;padding:8px;word-break:break-word;user-select:all}
+
+.logwrap{overflow-x:auto;max-height:560px;overflow-y:auto}
+table{border-collapse:collapse;width:100%;font-family:var(--f-mono);font-size:12.5px;font-variant-numeric:tabular-nums}
+th{position:sticky;top:0;background:var(--panel);font:600 10px var(--f-body);letter-spacing:.09em;text-transform:uppercase;color:var(--muted);text-align:right;padding:7px 8px;border-bottom:1px solid var(--line);white-space:nowrap;z-index:1}
+td{padding:6px 8px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+th:nth-child(-n+3),td:nth-child(-n+3){text-align:left}
+td.id{font-weight:500}
+td .t{font-size:10px;letter-spacing:.06em;color:var(--muted)}
+td.via{color:var(--accent)}
+td.proc{color:var(--warn)}
+td.bad{color:var(--bad);font-weight:600}
+tbody tr{cursor:pointer}
+tbody tr:hover{background:var(--route-soft)}
+tbody tr.sel{background:var(--route-soft);box-shadow:inset 3px 0 0 var(--route)}
+tfoot td{font-weight:500;border-bottom:0;color:var(--muted)}
+
+.toast{position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--panel);padding:9px 14px;border-radius:6px;font-size:13px;z-index:2000;max-width:calc(100% - 32px)}
+.toast.err{background:var(--bad);color:#fff}
+.drop{position:fixed;inset:0;z-index:1900;background:color-mix(in srgb,var(--bg) 82%,transparent);display:flex;align-items:center;justify-content:center;border:3px dashed var(--route);font:700 28px var(--f-display);letter-spacing:.06em;text-transform:uppercase;color:var(--route)}
+[hidden]{display:none!important}
+.foot{font-size:12px;color:var(--muted);max-width:75ch;margin:0}
+@media (max-width:560px){.set{grid-template-columns:repeat(2,minmax(0,1fr))}.sum{grid-template-columns:repeat(2,minmax(0,1fr))}.plan-title{max-width:100%}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <h1>Route<span>/</span>Desk</h1>
+      <div class="plan-title" id="planTitle">—</div>
+      <span class="badge" id="sampleBadge" hidden>Sample plan</span>
+    </div>
+    <div class="actions">
+      <input type="file" id="file" accept=".pln,.xml,application/xml,text/xml">
+      <label class="btn primary" for="file" tabindex="0" id="importBtn">Import .pln</label>
+      <button class="btn" id="copyRoute" type="button">Copy route</button>
+    </div>
+  </header>
+
+  <div class="recents" id="recents" hidden><span class="lbl">Recent</span></div>
+
+  <div class="grid">
+    <div class="col">
+      <section class="panel">
+        <div class="ph">
+          <h2>Enroute chart</h2>
+          <div class="maptools">
+            <label for="base">Map
+              <select id="base">
+                <option value="topo">Topo</option>
+                <option value="relief">Shaded relief</option>
+                <option value="sat">Satellite</option>
+                <option value="dark">Dark relief</option>
+              </select>
+            </label>
+            <label for="alertOn"><input type="checkbox" id="alertOn" checked> Terrain alert</label>
+            <label for="alertAlt">at ft<input type="number" id="alertAlt" min="0" max="45000" step="500" value="17000"></label>
+            <span class="legend"><span><i style="background:#dc2828"></i>above</span><span><i style="background:#f0b428"></i>within 1000</span></span>
+            <span class="apthint" id="aptHint">Zoom in on an airport for its layout</span>
+          </div>
+        </div>
+        <div id="map"></div>
+      </section>
+      <section class="panel">
+        <div class="ph"><h2>Vertical profile · terrain within 5 nm</h2><span class="hint" id="profHint">Loading terrain…</span></div>
+        <div class="profbox"><canvas id="prof"></canvas></div>
+      </section>
+    </div>
+
+    <div class="col">
+      <section class="panel">
+        <div class="od">
+          <div class="apt"><div class="icao" id="depIcao">----</div><div class="nm" id="depName"></div><div class="rwy-t" id="depRwy"></div><button type="button" class="diag" id="depDiag">Airport layout</button></div>
+          <div class="arrow"></div>
+          <div class="apt r"><div class="icao" id="arrIcao">----</div><div class="nm" id="arrName"></div><div class="rwy-t" id="arrRwy"></div><button type="button" class="diag" id="arrDiag">Airport layout</button></div>
+        </div>
+        <div class="sum">
+          <div><div class="k">Distance</div><div class="v" id="sDist">—</div></div>
+          <div><div class="k">ETE</div><div class="v" id="sEte">—</div></div>
+          <div><div class="k">Trip fuel</div><div class="v" id="sFuel">—</div></div>
+          <div><div class="k">Cruise</div><div class="v" id="sCrz">—</div></div>
+          <div><div class="k">Max terrain</div><div class="v" id="sTer">—</div></div>
+          <div><div class="k">Min clearance</div><div class="v" id="sClr">—</div></div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="ph"><h2>Performance</h2></div>
+        <div class="set">
+          <label for="gs">Ground speed kt<input id="gs" type="number" min="40" max="700" step="5" value="300"></label>
+          <label for="burn">Burn lb/hr<input id="burn" type="number" min="0" max="30000" step="50" value="1200"></label>
+          <label for="crz">Cruise ft<input id="crz" type="number" min="500" max="51000" step="500" value="24000"></label>
+        </div>
+        <div class="routestr"><code id="routeStr">—</code></div>
+      </section>
+
+      <section class="panel">
+        <div class="ph"><h2>Nav log</h2><span class="hint">track °true · terrain = highest within 5 nm of leg</span></div>
+        <div class="logwrap">
+          <table>
+            <thead><tr><th>Fix</th><th>Via</th><th>Proc</th><th>Trk</th><th>Leg</th><th>Total</th><th>ETE</th><th>Alt</th><th>Terr</th></tr></thead>
+            <tbody id="log"></tbody>
+            <tfoot><tr><td colspan="5">Totals</td><td id="tDist"></td><td id="tEte"></td><td></td><td></td></tr></tfoot>
+          </table>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <p class="foot">Export a plan from the MSFS 2024 world map (or SimBrief) as a .pln, then import it, drop it on this page, or paste the XML. Plans are saved in this browser only. Terrain comes from public elevation data at roughly 100–600 m resolution depending on route length, so treat clearance numbers as a planning guide. Tracks are true, not magnetic. For flight-sim use only.</p>
+</div>
+<div class="drop" id="drop" hidden>Drop .pln to load</div>
+
+<script>
+(function(){
+const $=id=>document.getElementById(id);
+const R2D=180/Math.PI, D2R=Math.PI/180, EARTH_NM=3440.065, M2FT=3.28084;
+let plan=null, selected=-1, terrain=null, terrainSeq=0;
+
+/* ---------- PLN parsing ---------- */
+function parseCoord(str){
+  const re=/([NSEW])\s*(\d+)°\s*(\d+)'\s*([\d.]+)"/g; const out=[]; let m;
+  while((m=re.exec(str))){ let v=+m[2]+ +m[3]/60+ +m[4]/3600; if(m[1]==='S'||m[1]==='W')v=-v; out.push(v); }
+  const alt=(str.split(',')[2]||'').trim();
+  if(out.length<2) return null;
+  return {lat:out[0],lon:out[1],alt:alt?parseFloat(alt):null};
+}
+function parsePln(text){
+  const doc=new DOMParser().parseFromString(text,'application/xml');
+  if(doc.getElementsByTagName('parsererror').length) throw new Error("That file isn't valid XML. Save the plan again from MSFS 2024 or SimBrief as a .pln.");
+  const fp=doc.getElementsByTagName('FlightPlan.FlightPlan')[0];
+  if(!fp) throw new Error("No flight plan found in that file. It should contain a FlightPlan.FlightPlan section.");
+  const g=(el,tag)=>{const n=el.getElementsByTagName(tag)[0];return n?n.textContent.trim():''};
+  const rwyOf=el=>(g(el,'RunwayNumberFP')||'')+(g(el,'RunwayDesignatorFP')||'').replace(/NONE/i,'').charAt(0);
+  const wps=[...fp.getElementsByTagName('ATCWaypoint')].map(w=>({
+    ident:g(w,'ICAOIdent')||w.getAttribute('id')||'WPT', type:g(w,'ATCWaypointType')||'User',
+    airway:g(w,'ATCAirway'), dep:g(w,'DepartureFP'), arr:g(w,'ArrivalFP'), app:g(w,'ApproachTypeFP'),
+    rwy:rwyOf(w), pos:parseCoord(g(w,'WorldPosition'))})).filter(w=>w.pos);
+  if(wps.length<2) throw new Error("The plan needs at least a departure and a destination with coordinates.");
+  const depLLA=parseCoord(g(fp,'DepartureLLA')), dstLLA=parseCoord(g(fp,'DestinationLLA'));
+  const p={title:g(fp,'Title'), type:g(fp,'FPType')||'—', cruise:parseFloat(g(fp,'CruisingAlt'))||null,
+    depId:g(fp,'DepartureID')||wps[0].ident, dstId:g(fp,'DestinationID')||wps[wps.length-1].ident,
+    depName:g(fp,'DepartureName'), dstName:g(fp,'DestinationName'),
+    depElev:depLLA&&depLLA.alt!=null?depLLA.alt:(wps[0].pos.alt||0),
+    dstElev:dstLLA&&dstLLA.alt!=null?dstLLA.alt:(wps[wps.length-1].pos.alt||0), wps};
+  const dd=fp.getElementsByTagName('DepartureDetails')[0], ad=fp.getElementsByTagName('ApproachDetails')[0];
+  p.depRwy=(dd&&rwyOf(dd))||g(fp,'DepartureRunway')||wps[0].rwy||'';
+  p.dstRwy=(ad&&rwyOf(ad))||g(fp,'DestinationRunway')||wps[wps.length-1].rwy||'';
+  return p;
+}
+
+/* ---------- geodesy ---------- */
+function gcDist(a,b){const f1=a.lat*D2R,f2=b.lat*D2R,df=f2-f1,dl=(b.lon-a.lon)*D2R;
+  const h=Math.sin(df/2)**2+Math.cos(f1)*Math.cos(f2)*Math.sin(dl/2)**2;return 2*Math.asin(Math.min(1,Math.sqrt(h)))*EARTH_NM;}
+function gcBrg(a,b){const f1=a.lat*D2R,f2=b.lat*D2R,dl=(b.lon-a.lon)*D2R;
+  const y=Math.sin(dl)*Math.cos(f2),x=Math.cos(f1)*Math.sin(f2)-Math.sin(f1)*Math.cos(f2)*Math.cos(dl);return (Math.atan2(y,x)*R2D+360)%360;}
+function gcInterp(a,b,t){const f1=a.lat*D2R,l1=a.lon*D2R,f2=b.lat*D2R,l2=b.lon*D2R,d=gcDist(a,b)/EARTH_NM;
+  if(d<1e-9)return {lat:a.lat,lon:a.lon};const A=Math.sin((1-t)*d)/Math.sin(d),B=Math.sin(t*d)/Math.sin(d);
+  const x=A*Math.cos(f1)*Math.cos(l1)+B*Math.cos(f2)*Math.cos(l2),y=A*Math.cos(f1)*Math.sin(l1)+B*Math.cos(f2)*Math.sin(l2),z=A*Math.sin(f1)+B*Math.sin(f2);
+  return {lat:Math.atan2(z,Math.hypot(x,y))*R2D,lon:Math.atan2(y,x)*R2D};}
+function gcDest(a,brg,nm){const d=nm/EARTH_NM,f1=a.lat*D2R,l1=a.lon*D2R,t=brg*D2R;
+  const f2=Math.asin(Math.sin(f1)*Math.cos(d)+Math.cos(f1)*Math.sin(d)*Math.cos(t));
+  const l2=l1+Math.atan2(Math.sin(t)*Math.sin(d)*Math.cos(f1),Math.cos(d)-Math.sin(f1)*Math.sin(f2));
+  return {lat:f2*R2D,lon:((l2*R2D+540)%360)-180};}
+
+/* ---------- elevation tiles (AWS Terrarium, public) ---------- */
+const TILE_URL=(z,x,y)=>`https://s3.amazonaws.com/elevation-tiles-prod/terrarium/${z}/${x}/${y}.png`;
+const elevCache=new Map(); // key -> Promise<Float32Array|null> (meters)
+const decodeCv=document.createElement('canvas');decodeCv.width=decodeCv.height=256;
+const decodeCtx=decodeCv.getContext('2d',{willReadFrequently:true});
+function elevTile(z,x,y){
+  const n=1<<z; x=((x%n)+n)%n; if(y<0||y>=n) return Promise.resolve(null);
+  const key=z+'/'+x+'/'+y; if(elevCache.has(key)){const v=elevCache.get(key);elevCache.delete(key);elevCache.set(key,v);return v;}
+  const pr=new Promise(res=>{const img=new Image();img.crossOrigin='anonymous';
+    img.onload=()=>{try{decodeCtx.clearRect(0,0,256,256);decodeCtx.drawImage(img,0,0);const d=decodeCtx.getImageData(0,0,256,256).data;
+      const out=new Float32Array(65536);for(let i=0,j=0;i<65536;i++,j+=4)out[i]=d[j]*256+d[j+1]+d[j+2]/256-32768;res(out);}catch(e){res(null);}};
+    img.onerror=()=>res(null);img.src=TILE_URL(z,x,y);});
+  elevCache.set(key,pr); if(elevCache.size>220){elevCache.delete(elevCache.keys().next().value);}
+  return pr;
+}
+function tileXY(lat,lon,z){const n=1<<z,la=Math.max(-85.05,Math.min(85.05,lat))*D2R;
+  return {xf:(lon+180)/360*n, yf:(1-Math.log(Math.tan(la)+1/Math.cos(la))/Math.PI)/2*n};}
+
+/* ---------- derived numbers ---------- */
+function compute(){
+  const w=plan.wps; let cum=0;
+  w.forEach((p,i)=>{ if(i===0){p.leg=0;p.trk=null;p.cum=0;return;}
+    p.leg=gcDist(w[i-1].pos,p.pos); p.trk=gcBrg(w[i-1].pos,p.pos); cum+=p.leg; p.cum=cum; });
+  plan.total=cum;
+  const crz=+$('crz').value||plan.cruise||10000;
+  let toc=(crz-plan.depElev)/1000*2.5, tod=(crz-plan.dstElev)/1000*3, peak=crz;
+  if(toc+tod>cum){const k=cum/(toc+tod);toc*=k;tod*=k;peak=plan.depElev+toc/2.5*1000;}
+  plan.prof={crz,peak,toc,tod:cum-tod};
+  w.forEach(p=>{p.palt=altAt(p.cum);});
+}
+function altAt(d){const P=plan.prof,T=plan.total;
+  if(d<=P.toc) return plan.depElev+(P.peak-plan.depElev)*(P.toc?d/P.toc:1);
+  if(d>=P.tod) return plan.dstElev+(P.peak-plan.dstElev)*((T-d)/((T-P.tod)||1));
+  return P.peak;}
+const fmtEte=h=>{if(!isFinite(h))return '—';const m=Math.round(h*60);return Math.floor(m/60)+':'+String(m%60).padStart(2,'0');};
+const fmtAlt=a=>a>=18000?'FL'+String(Math.round(a/100)).padStart(3,'0'):(Math.round(a/100)*100).toLocaleString();
+const fmtFt=a=>Math.round(a).toLocaleString();
+const trk3=t=>String(Math.round(t)%360||360).padStart(3,'0');
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function shortType(t){t=(t||'').toLowerCase();return t.startsWith('air')?'APT':t.startsWith('vor')?'VOR':t.startsWith('ndb')?'NDB':t.startsWith('int')?'FIX':'USR';}
+
+function routeString(){
+  const w=plan.wps,t=[w[0].ident];let aw=null,end=null,sid=null,star=null;
+  for(let i=1;i<w.length;i++){const p=w[i],last=i===w.length-1;
+    if(p.dep){if(!sid){sid=p.dep;t.push(p.dep);}continue;}
+    if(p.arr&&!last){if(aw){t.push(end);aw=null;}if(!star){star=p.arr;t.push(p.arr);}continue;}
+    if(p.app&&!last)continue;
+    if(p.airway&&p.airway===aw){end=p.ident;continue;}
+    if(aw){t.push(end);aw=null;}
+    if(p.airway&&!last){t.push(p.airway);aw=p.airway;end=p.ident;}else t.push(p.ident);}
+  return t.join(' ');
+}
+
+/* ---------- terrain along route ---------- */
+async function loadTerrain(){
+  const seq=++terrainSeq; terrain=null; $('profHint').textContent='Loading terrain…';$('profHint').className='hint';
+  const T=plan.total, z=T<150?11:T<500?10:T<1500?9:8, N=Math.min(600,Math.max(120,Math.round(T*2)));
+  const w=plan.wps, samples=[];
+  // build sample points: centre line plus 5 nm either side
+  let leg=1;
+  for(let k=0;k<=N;k++){const d=T*k/N;while(leg<w.length-1&&w[leg].cum<d)leg++;
+    const a=w[leg-1],b=w[leg],t=b.leg?(d-a.cum)/b.leg:0,c=gcInterp(a.pos,b.pos,Math.max(0,Math.min(1,t))),brg=b.trk??0;
+    samples.push({d,leg,pts:[c,gcDest(c,brg+90,5),gcDest(c,brg-90,5)]});}
+  const need=new Set();samples.forEach(s=>s.pts.forEach(p=>{const {xf,yf}=tileXY(p.lat,p.lon,z);need.add(Math.floor(xf)+','+Math.floor(yf));}));
+  const tiles={};await Promise.all([...need].map(async k=>{const [x,y]=k.split(',').map(Number);tiles[k]=await elevTile(z,x,y);}));
+  if(seq!==terrainSeq)return;
+  let missing=0;
+  const prof=samples.map(s=>{let mx=-1e9,ctr=0;s.pts.forEach((p,i)=>{const {xf,yf}=tileXY(p.lat,p.lon,z),tx=Math.floor(xf),ty=Math.floor(yf),
+      tl=tiles[tx+','+ty];if(!tl){missing++;return;}const e=Math.max(0,tl[Math.min(255,Math.floor((yf-ty)*256))*256+Math.min(255,Math.floor((xf-tx)*256))])*M2FT;
+      mx=Math.max(mx,e);if(i===0)ctr=e;});return {d:s.d,leg:s.leg,max:Math.max(0,mx),ctr};});
+  if(missing>samples.length){$('profHint').textContent="Terrain didn't load. Check your internet connection.";$('profHint').className='hint bad';drawProf();return;}
+  terrain=prof; applyTerrain();
+}
+function applyTerrain(){
+  if(!terrain||!plan)return;
+  const T=plan.total; let maxT=0,minClr=Infinity,minAt=0;
+  plan.wps.forEach(p=>p.terr=0);
+  terrain.forEach(s=>{maxT=Math.max(maxT,s.max);plan.wps[s.leg].terr=Math.max(plan.wps[s.leg].terr,s.max);
+    if(s.d>8&&s.d<T-8){const c=altAt(s.d)-s.max;if(c<minClr){minClr=c;minAt=s.d;}}});
+  plan.maxTerr=maxT;plan.minClr=minClr;
+  $('sTer').innerHTML=fmtFt(maxT)+'<small>ft</small>';
+  const clr=$('sClr');
+  if(isFinite(minClr)){clr.innerHTML=fmtFt(minClr)+'<small>ft</small>';clr.className='v'+(minClr<1000?' bad':'');}
+  else{clr.textContent='—';clr.className='v';}
+  const h=$('profHint');
+  if(isFinite(minClr)&&minClr<1000){h.textContent='Below 1,000 ft clearance near '+Math.round(minAt)+' nm. Raise cruise or reroute.';h.className='hint bad';}
+  else{h.textContent='Max terrain '+fmtFt(maxT)+' ft'+(isFinite(minClr)?' · lowest clearance '+fmtFt(minClr)+' ft at '+Math.round(minAt)+' nm':'');h.className='hint';}
+  renderLog();drawProf();
+}
+
+/* ---------- panels ---------- */
+function render(){
+  compute();
+  const gs=+$('gs').value||1,burn=+$('burn').value||0,ete=plan.total/gs;
+  $('planTitle').textContent=plan.title||(plan.depId+' to '+plan.dstId);
+  $('depIcao').textContent=plan.depId;$('arrIcao').textContent=plan.dstId;
+  $('depName').textContent=plan.depName;$('arrName').textContent=plan.dstName;
+  $('depRwy').textContent=plan.depRwy?'RWY '+plan.depRwy:'';$('arrRwy').textContent=plan.dstRwy?'RWY '+plan.dstRwy:'';
+  $('sDist').innerHTML=Math.round(plan.total)+'<small>nm</small>';
+  $('sEte').innerHTML=fmtEte(ete)+'<small>h:m</small>';
+  $('sFuel').innerHTML=Math.round(ete*burn).toLocaleString()+'<small>lb</small>';
+  $('sCrz').textContent=fmtAlt(plan.prof.crz);
+  $('routeStr').textContent=routeString();
+  $('tDist').textContent=Math.round(plan.total);$('tEte').textContent=fmtEte(ete);
+  if(terrain)applyTerrain();else{renderLog();drawProf();}
+}
+function renderLog(){
+  const gs=+$('gs').value||1;
+  $('log').innerHTML=plan.wps.map((p,i)=>{const proc=p.dep||p.arr||p.app||'';
+    const tr=terrain&&i>0?p.terr:null, low=tr!=null&&p.palt-tr<1000&&p.cum>8&&p.cum<plan.total-8;
+    return `<tr data-i="${i}" tabindex="0"${i===selected?' class="sel"':''}>
+      <td class="id">${esc(p.ident)} <span class="t">${shortType(p.type)}</span></td>
+      <td class="via">${esc(i===0?'':(p.airway||'DCT'))}</td><td class="proc">${esc(proc)}</td>
+      <td>${p.trk==null?'':trk3(p.trk)}</td><td>${i?p.leg.toFixed(1):''}</td><td>${i?p.cum.toFixed(0):'0'}</td>
+      <td>${i?fmtEte(p.cum/gs):''}</td><td>${fmtAlt(p.palt)}</td>
+      <td${low?' class="bad"':''}>${tr==null?'':fmtFt(tr)}</td></tr>`;}).join('');
+}
+
+/* ---------- map (Leaflet) ---------- */
+const map=L.map('map',{zoomControl:true,worldCopyJump:true,maxZoom:18}).setView([39,-98],4);
+const ESRI='https://server.arcgisonline.com/ArcGIS/rest/services/';
+const bases={
+  topo:L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',{maxZoom:17,subdomains:'abc',attribution:'Map © OpenStreetMap contributors, SRTM · style © OpenTopoMap (CC-BY-SA)'}),
+  relief:L.tileLayer(ESRI+'World_Shaded_Relief/MapServer/tile/{z}/{y}/{x}',{maxNativeZoom:13,maxZoom:17,attribution:'Tiles © Esri'}),
+  sat:L.tileLayer(ESRI+'World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:18,attribution:'Imagery © Esri, Maxar, Earthstar Geographics'}),
+  dark:L.tileLayer('https://services.arcgisonline.com/arcgis/rest/services/Elevation/World_Hillshade_Dark/MapServer/tile/{z}/{y}/{x}',{maxNativeZoom:16,maxZoom:17,attribution:'Tiles © Esri'})
+};
+let base=bases.topo.addTo(map);
+try{const b=localStorage.getItem('routedesk.base1');if(b&&bases[b]){$('base').value=b;map.removeLayer(base);base=bases[b].addTo(map);}}catch(e){}
+$('base').addEventListener('change',e=>{map.removeLayer(base);base=bases[e.target.value].addTo(map);base.bringToBack();try{localStorage.setItem('routedesk.base1',e.target.value);}catch(_){}});
+
+// terrain alert overlay: red at/above alert altitude (−100 ft), amber within 1000 ft below
+const AlertLayer=L.GridLayer.extend({
+  createTile(c,done){const cv=document.createElement('canvas');cv.width=cv.height=256;
+    elevTile(c.z,c.x,c.y).then(e=>{if(e){const ctx=cv.getContext('2d'),img=ctx.createImageData(256,256),d=img.data,alt=(+$('alertAlt').value||0)/M2FT,
+        red=alt-100/M2FT,amb=alt-1000/M2FT;
+      for(let i=0,j=0;i<65536;i++,j+=4){const v=e[i];if(v>=red){d[j]=220;d[j+1]=40;d[j+2]=40;d[j+3]=150;}else if(v>=amb&&v>0){d[j]=240;d[j+1]=180;d[j+2]=40;d[j+3]=120;}}
+      ctx.putImageData(img,0,0);}done(null,cv);});return cv;}
+});
+const alertLayer=new AlertLayer({maxNativeZoom:12,maxZoom:18,opacity:1,zIndex:300});
+alertLayer.addTo(map);
+$('alertOn').addEventListener('change',e=>e.target.checked?alertLayer.addTo(map):map.removeLayer(alertLayer));
+let alertT;$('alertAlt').addEventListener('input',()=>{clearTimeout(alertT);alertT=setTimeout(()=>alertLayer.redraw(),250);});
+
+// NM scale
+const NmScale=L.Control.extend({options:{position:'bottomleft'},onAdd(){this._d=L.DomUtil.create('div','nmscale');map.on('moveend zoomend',()=>this.upd());this.upd();return this._d;},
+  upd(){if(!this._d)return;const s=map.getSize(),y=s.y/2,a=map.containerPointToLatLng([0,y]),b=map.containerPointToLatLng([100,y]);
+    const nmPerPx=gcDist({lat:a.lat,lon:a.lng},{lat:b.lat,lon:b.lng})/100,nice=[1,2,5,10,20,25,50,100,200,250,500,1000].find(v=>v/nmPerPx>=60)||1000;
+    this._d.innerHTML=nice+' NM<b style="width:'+Math.round(nice/nmPerPx)+'px"></b>';}});
+new NmScale().addTo(map);
+
+const SYM={
+  APT:'<svg width="18" height="18" viewBox="-9 -9 18 18"><circle r="7.5" fill="#0a6a86" stroke="#fff" stroke-width="1.6"/><path d="M-4.5 2.6 4.5-2.6" stroke="#fff" stroke-width="2.2"/></svg>',
+  VOR:'<svg width="16" height="16" viewBox="-8 -8 16 16"><path d="M6.5 0 3.25 5.63-3.25 5.63-6.5 0-3.25-5.63 3.25-5.63Z" fill="#fff" stroke="#16212a" stroke-width="1.6"/><circle r="1.7" fill="#16212a"/></svg>',
+  NDB:'<svg width="14" height="14" viewBox="-7 -7 14 14"><circle r="5.5" fill="#fff" stroke="#7a3e9d" stroke-width="1.6" stroke-dasharray="1.5 2"/><circle r="1.7" fill="#7a3e9d"/></svg>',
+  FIX:'<svg width="14" height="14" viewBox="-7 -7 14 14"><path d="M0-6.5 6 4H-6Z" fill="#fff" stroke="#16212a" stroke-width="1.6"/></svg>',
+  USR:'<svg width="12" height="12" viewBox="-6 -6 12 12"><rect x="-4.5" y="-4.5" width="9" height="9" fill="#fff" stroke="#16212a" stroke-width="1.6"/></svg>'
+};
+let routeLayer=L.layerGroup().addTo(map), markers=[], legLabels=[];
+function drawRoute(){
+  routeLayer.clearLayers();markers=[];legLabels=[];
+  const w=plan.wps,pts=[];
+  w.forEach((p,i)=>{if(i===0){pts.push([p.pos.lat,p.pos.lon]);return;}
+    const n=Math.min(60,Math.max(1,Math.ceil(p.leg/25)));let prevLon=pts[pts.length-1][1];
+    for(let k=1;k<=n;k++){const q=gcInterp(w[i-1].pos,p.pos,k/n);let lon=q.lon;while(lon-prevLon>180)lon-=360;while(lon-prevLon<-180)lon+=360;prevLon=lon;pts.push([q.lat,lon]);}});
+  L.polyline(pts,{color:'#ffffff',weight:8,opacity:.75,interactive:false}).addTo(routeLayer);
+  L.polyline(pts,{color:'#c0177a',weight:3.5,opacity:1,interactive:false}).addTo(routeLayer);
+  w.forEach((p,i)=>{if(!i)return;const mid=gcInterp(w[i-1].pos,p.pos,.5);
+    const m=L.marker([mid.lat,mid.lon],{interactive:false,keyboard:false,icon:L.divIcon({className:'leg',iconSize:null,html:'<div></div>'})}).addTo(routeLayer);
+    m._leg=i;legLabels.push(m);});
+  w.forEach((p,i)=>{const t=shortType(p.type);
+    const m=L.marker([p.pos.lat,p.pos.lon],{keyboard:false,title:p.ident,riseOnHover:true,
+      icon:L.divIcon({className:'',iconSize:null,html:`<div class="wpt ${t==='APT'?'apt':''}${i===selected?' sel':''}">${SYM[t]}<span>${esc(p.ident)}</span></div>`})}).addTo(routeLayer);
+    m.on('click',()=>select(i===selected?-1:i,true));markers.push(m);});
+  map.fitBounds(L.latLngBounds(pts),{padding:[40,40]});
+  updateLegLabels();
+}
+function updateLegLabels(){
+  if(!plan)return;const w=plan.wps;
+  legLabels.forEach(m=>{const i=m._leg,el=m.getElement();if(!el)return;
+    const a=map.latLngToLayerPoint([w[i-1].pos.lat,w[i-1].pos.lon]),b=map.latLngToLayerPoint([w[i].pos.lat,w[i].pos.lon]);
+    const L2=Math.hypot(b.x-a.x,b.y-a.y),div=el.firstChild;if(L2<140){div.style.display='none';return;}
+    let ang=Math.atan2(b.y-a.y,b.x-a.x)*R2D;if(ang>90)ang-=180;if(ang<-90)ang+=180;
+    div.style.display='';div.style.transform=`translate(-50%,-50%) rotate(${ang}deg) translateY(-12px)`;
+    div.textContent=trk3(w[i].trk)+'°  '+Math.round(w[i].leg)+' NM'+(w[i].airway?'  '+w[i].airway:'');});
+}
+map.on('zoomend',updateLegLabels);
+
+/* ---------- airport layouts (OpenStreetMap via Overpass) ---------- */
+const APT_MIN_Z=13;
+[['aptBase',351],['aptPave',352],['aptRwy',353],['aptLine',354],['aptPts',355]].forEach(([n,z])=>{map.createPane(n).style.zIndex=z;});
+const R={base:L.canvas({pane:'aptBase'}),pave:L.canvas({pane:'aptPave'}),rwy:L.canvas({pane:'aptRwy'}),line:L.canvas({pane:'aptLine'}),pts:L.canvas({pane:'aptPts'})};
+const aptLayer=L.layerGroup(), aptLabels=L.layerGroup();
+const osmSeen=new Set(), fetchedBoxes=[], paveLines=[], runways=[], taxiways=[], gates=[];
+let aptBusy=false, aptPending=false, aptAttrib=false;
+const OVERPASS=['https://overpass-api.de/api/interpreter','https://overpass.kumi.systems/api/interpreter','https://maps.mail.ru/osm/tools/overpass/api/interpreter'];
+const C_APT={apron:'#8f969d',bldg:'#56626e',pave:'#6a7077',rwy:'#2f3439',cl:'#f2c230',hold:'#e02424',plan:'#c0177a'};
+
+function pxPerMeter(lat,z){return 256*Math.pow(2,z)/(40075016.686*Math.cos(lat*D2R));}
+function mDist(a,b){return gcDist({lat:a[0],lon:a[1]},{lat:b[0],lon:b[1]})*1852;}
+function parseWidth(t,def){const v=parseFloat(t);if(!isFinite(v)||v<=0)return def;return /ft|'/.test(t)?v*0.3048:v;}
+const normRwy=s=>String(s||'').toUpperCase().replace(/^0+/,'').replace(/[^0-9LRCW]/g,'');
+
+async function overpass(b){
+  const bb=`${b.s},${b.w},${b.n},${b.e}`;
+  const q=`[out:json][timeout:30];(way["aeroway"](${bb});way["area:aeroway"](${bb});node["aeroway"~"^(gate|parking_position|holding_position)$"](${bb}););out geom;`;
+  for(const url of OVERPASS){try{const r=await fetch(url,{method:'POST',body:'data='+encodeURIComponent(q),headers:{'Content-Type':'application/x-www-form-urlencoded'}});
+    if(r.ok)return await r.json();}catch(e){}}
+  throw new Error('offline');
+}
+function runwayPolygon(pts,w){ // centerline [[lat,lon]...] -> polygon of width w metres
+  const left=[],right=[];
+  for(let i=0;i<pts.length;i++){const a=pts[Math.max(0,i-1)],b=pts[Math.min(pts.length-1,i+1)];
+    const ky=111320,kx=111320*Math.cos(pts[i][0]*D2R),dx=(b[1]-a[1])*kx,dy=(b[0]-a[0])*ky,L0=Math.hypot(dx,dy)||1;
+    const ox=-dy/L0*w/2,oy=dx/L0*w/2;
+    left.push([pts[i][0]+oy/ky,pts[i][1]+ox/kx]);right.push([pts[i][0]-oy/ky,pts[i][1]-ox/kx]);}
+  return left.concat(right.reverse());
+}
+function isPlanned(ref,mid){
+  if(!plan)return false;const parts=String(ref||'').split('/').map(normRwy);
+  const near=(apt)=>gcDist({lat:mid[0],lon:mid[1]},apt)<4;
+  const d=plan.wps[0].pos,a=plan.wps[plan.wps.length-1].pos;
+  return (plan.depRwy&&near(d)&&parts.includes(normRwy(plan.depRwy)))||(plan.dstRwy&&near(a)&&parts.includes(normRwy(plan.dstRwy)));
+}
+function addElement(el){
+  const key=el.type+el.id;if(osmSeen.has(key))return;osmSeen.add(key);
+  const t=el.tags||{},kind=t.aeroway||'',area=t['area:aeroway']||'';
+  if(el.type==='node'){
+    const ll=[el.lat,el.lon];
+    if(kind==='holding_position'){L.circleMarker(ll,{renderer:R.pts,radius:3,color:'#fff',weight:1,fillColor:C_APT.hold,fillOpacity:1,interactive:false}).addTo(aptLayer);}
+    else{const ref=t.ref||t.name;L.circleMarker(ll,{renderer:R.pts,radius:2.5,color:'#0a6a86',weight:1,fillColor:'#fff',fillOpacity:1,interactive:false}).addTo(aptLayer);if(ref)gates.push({ll,ref});}
+    return;}
+  const g=(el.geometry||[]).filter(Boolean).map(p=>[p.lat,p.lon]);if(g.length<2)return;
+  const closed=g.length>3&&g[0][0]===g[g.length-1][0]&&g[0][1]===g[g.length-1][1];
+  if(area){L.polygon(g,{renderer:R.pave,stroke:false,fillColor:area==='runway'?C_APT.rwy:C_APT.pave,fillOpacity:.9,interactive:false}).addTo(aptLayer);return;}
+  switch(kind){
+    case 'apron': if(closed)L.polygon(g,{renderer:R.base,stroke:false,fillColor:C_APT.apron,fillOpacity:.55,interactive:false}).addTo(aptLayer);break;
+    case 'terminal': case 'hangar': if(closed)L.polygon(g,{renderer:R.base,color:'#3d4752',weight:1,fillColor:C_APT.bldg,fillOpacity:.75,interactive:false}).addTo(aptLayer);break;
+    case 'runway': {
+      if(closed&&t.area==='yes'){L.polygon(g,{renderer:R.rwy,stroke:false,fillColor:C_APT.rwy,fillOpacity:.95,interactive:false}).addTo(aptLayer);break;}
+      const w=parseWidth(t.width,45),len=g.reduce((s,p,i)=>i?s+mDist(g[i-1],p):0,0),mid=g[Math.floor(g.length/2)];
+      const planned=isPlanned(t.ref,mid);
+      const poly=L.polygon(runwayPolygon(g,w),{renderer:R.rwy,color:planned?C_APT.plan:'#1c2024',weight:planned?3:1,fillColor:C_APT.rwy,fillOpacity:.97}).addTo(aptLayer);
+      poly.bindTooltip(`RWY ${esc(t.ref||'')} · ${Math.round(len*3.28084).toLocaleString()} × ${Math.round(w*3.28084)} ft${t.surface?' · '+esc(t.surface):''}`,{sticky:true});
+      L.polyline(g,{renderer:R.line,color:'#fff',weight:1.5,dashArray:'10 8',interactive:false}).addTo(aptLayer);
+      runways.push({g,ref:t.ref||'',planned,poly});break;}
+    case 'taxiway': case 'taxilane': {
+      const w=parseWidth(t.width,kind==='taxilane'?15:23);
+      const pv=L.polyline(g,{renderer:R.pave,color:C_APT.pave,opacity:.92,weight:3,lineCap:'round',lineJoin:'round',interactive:false}).addTo(aptLayer);
+      paveLines.push({l:pv,w,lat:g[0][0]});
+      const cl=L.polyline(g,{renderer:R.line,color:C_APT.cl,weight:1.6,opacity:.95}).addTo(aptLayer);
+      if(t.ref){cl.bindTooltip('Taxiway '+esc(t.ref),{sticky:true});taxiways.push({g,ref:t.ref});}
+      break;}
+    case 'holding_position': L.polyline(g,{renderer:R.pts,color:C_APT.hold,weight:3,interactive:false}).addTo(aptLayer);break;
+    case 'parking_position': case 'gate': {const ref=t.ref||t.name;if(ref)gates.push({ll:g[0],ref});
+      L.polyline(g,{renderer:R.line,color:'#ffffff',weight:1,opacity:.8,interactive:false}).addTo(aptLayer);break;}
+  }
+}
+function sizePavement(){const z=map.getZoom();paveLines.forEach(p=>p.l.setStyle({weight:Math.max(2.5,p.w*pxPerMeter(p.lat,z))}));}
+function labelAirports(){
+  aptLabels.clearLayers();if(map.getZoom()<APT_MIN_Z)return;
+  const z=map.getZoom(),bnd=map.getBounds().pad(.1),placed=[];
+  const free=(pt,r)=>placed.every(q=>Math.abs(q.x-pt.x)>r||Math.abs(q.y-pt.y)>r*0.6);
+  const put=(ll,cls,txt,r)=>{const pt=map.latLngToContainerPoint(ll);if(!free(pt,r))return false;placed.push(pt);
+    L.marker(ll,{interactive:false,keyboard:false,icon:L.divIcon({className:'',iconSize:null,html:`<div class="${cls}">${esc(txt)}</div>`})}).addTo(aptLabels);return true;};
+  // runway designators at each end
+  runways.forEach(r=>{const A=r.g[0],B=r.g[r.g.length-1];if(!bnd.contains(A)&&!bnd.contains(B))return;
+    const parts=r.ref.split('/').map(s=>s.trim()).filter(Boolean);if(!parts.length)return;
+    const brgAB=gcBrg({lat:A[0],lon:A[1]},{lat:B[0],lon:B[1]});
+    const diff=(p,b)=>{const n=parseInt(p,10);if(!isFinite(n))return 999;const d=Math.abs(((n*10-b)%360+540)%360-180);return d;};
+    let atA=parts[0],atB=parts[1]||'';
+    if(parts.length===2&&diff(parts[1],brgAB)<diff(parts[0],brgAB)){atA=parts[1];atB=parts[0];}
+    const cls='rwy'+(r.planned?' plan':'');
+    put(A,cls,atA,34);if(atB)put(B,cls,atB,34);});
+  if(z>=14){ // taxiway location labels, spread out per ref
+    const lastByRef={};let n=0;
+    taxiways.forEach(t=>{if(n>220)return;const g=t.g;let tot=0;for(let i=1;i<g.length;i++)tot+=mDist(g[i-1],g[i]);
+      const px=tot*pxPerMeter(g[0][0],z);if(px<55)return;
+      const steps=Math.max(1,Math.floor(px/420));
+      for(let s=0;s<steps;s++){const target=tot*(s+.5)/steps;let acc=0,ll=g[0];
+        for(let i=1;i<g.length;i++){const d=mDist(g[i-1],g[i]);if(acc+d>=target){const f=(target-acc)/d;ll=[g[i-1][0]+(g[i][0]-g[i-1][0])*f,g[i-1][1]+(g[i][1]-g[i-1][1])*f];break;}acc+=d;}
+        if(!bnd.contains(ll))continue;const pt=map.latLngToContainerPoint(ll),prev=lastByRef[t.ref]||[];
+        if(prev.some(q=>Math.hypot(q.x-pt.x,q.y-pt.y)<260))continue;
+        if(put(ll,'twy',t.ref,26)){prev.push(pt);lastByRef[t.ref]=prev;n++;}}});
+  }
+  if(z>=16){let n=0;gates.forEach(gt=>{if(n>300||!bnd.contains(gt.ll))return;if(put(gt.ll,'gate',gt.ref,22))n++;});}
+}
+async function updateAirports(){
+  const z=map.getZoom(),hint=$('aptHint');
+  if(z<APT_MIN_Z){map.removeLayer(aptLayer);map.removeLayer(aptLabels);hint.textContent='Zoom in on an airport for its layout';hint.className='apthint';return;}
+  if(!map.hasLayer(aptLayer)){aptLayer.addTo(map);aptLabels.addTo(map);}
+  if(!aptAttrib){map.attributionControl.addAttribution('Airport data © OpenStreetMap contributors');aptAttrib=true;}
+  sizePavement();labelAirports();
+  if(aptBusy){aptPending=true;return;}
+  const b=map.getBounds(),snap=0.05,box={s:Math.floor(b.getSouth()/snap)*snap,w:Math.floor(b.getWest()/snap)*snap,n:Math.ceil(b.getNorth()/snap)*snap,e:Math.ceil(b.getEast()/snap)*snap};
+  if(fetchedBoxes.some(f=>f.s<=box.s&&f.w<=box.w&&f.n>=box.n&&f.e>=box.e)){hint.textContent='Airport layout: OpenStreetMap';hint.className='apthint';return;}
+  if((box.n-box.s)*(box.e-box.w)>0.5){hint.textContent='Zoom in a little more to load the layout';hint.className='apthint';return;}
+  aptBusy=true;hint.textContent='Loading airport layout…';hint.className='apthint busy';
+  try{const data=await overpass(box);fetchedBoxes.push(box);
+    const els=data.elements||[];els.sort((a,b)=>(a.type==='node')-(b.type==='node'));els.forEach(addElement);
+    sizePavement();labelAirports();
+    hint.textContent=els.length?'Airport layout: OpenStreetMap':'No airport layout mapped here';hint.className='apthint';
+  }catch(e){hint.textContent="Airport layout didn't load. Check your connection and zoom again.";hint.className='apthint';}
+  aptBusy=false;if(aptPending){aptPending=false;updateAirports();}
+}
+let aptT;map.on('moveend zoomend',()=>{clearTimeout(aptT);aptT=setTimeout(updateAirports,250);});
+function showAirport(i){if(!plan)return;const p=plan.wps[i].pos;map.setView([p.lat,p.lon],15);}
+$('depDiag').onclick=()=>showAirport(0);
+$('arrDiag').onclick=()=>plan&&showAirport(plan.wps.length-1);
+function refreshPlannedRunways(){ // re-flag planned runways after a new plan loads
+  runways.forEach(r=>{r.planned=isPlanned(r.ref,r.g[Math.floor(r.g.length/2)]);r.poly.setStyle({color:r.planned?C_APT.plan:'#1c2024',weight:r.planned?3:1});});labelAirports();
+}
+
+/* ---------- profile ---------- */
+const profCv=$('prof');
+function css(n){return getComputedStyle(document.documentElement).getPropertyValue(n).trim();}
+function drawProf(){
+  if(!plan)return;const r=profCv.getBoundingClientRect(),dpr=window.devicePixelRatio||1;
+  profCv.width=Math.max(1,r.width*dpr);profCv.height=Math.max(1,r.height*dpr);const c=profCv.getContext('2d');c.setTransform(dpr,0,0,dpr,0,0);
+  const w=r.width,h=r.height,C={ink:css('--ink'),muted:css('--muted'),grid:css('--grid'),route:css('--route'),soft:css('--route-soft'),panel:css('--panel'),ter:css('--terrain'),terS:css('--terrain-soft'),bad:css('--bad')};
+  c.fillStyle=C.panel;c.fillRect(0,0,w,h);
+  const Lp=50,Rp=14,Tp=16,Bp=26,pw=w-Lp-Rp,ph=h-Tp-Bp,T0=plan.total||1;
+  const top=Math.max(plan.prof.crz,plan.maxTerr||0,plan.depElev,plan.dstElev)*1.12+500;
+  const X=d=>Lp+d/T0*pw,Y=a=>Tp+ph-(a/top)*ph;
+  c.font='500 10px '+css('--f-mono');c.lineWidth=1;
+  const astep=[1000,2000,5000,10000].find(s=>top/s<=5)||10000;
+  for(let a=0;a<=top;a+=astep){const y=Y(a);c.strokeStyle=C.grid;c.beginPath();c.moveTo(Lp,y);c.lineTo(w-Rp,y);c.stroke();c.fillStyle=C.muted;c.textAlign='right';c.fillText(a>=18000?'FL'+a/100:(a/1000)+'k',Lp-6,y+3);}
+  // terrain
+  if(terrain){
+    c.beginPath();c.moveTo(X(0),Y(0));terrain.forEach(s=>c.lineTo(X(s.d),Y(s.max)));c.lineTo(X(T0),Y(0));c.closePath();c.fillStyle=C.terS;c.fill();
+    c.beginPath();terrain.forEach((s,i)=>i?c.lineTo(X(s.d),Y(s.max)):c.moveTo(X(s.d),Y(s.max)));c.strokeStyle=C.ter;c.lineWidth=1.4;c.stroke();
+    c.beginPath();c.moveTo(X(0),Y(0));terrain.forEach(s=>c.lineTo(X(s.d),Y(s.ctr)));c.lineTo(X(T0),Y(0));c.closePath();c.fillStyle=C.ter;c.fill();
+  }
+  // planned path
+  const pts=[[0,plan.depElev],[plan.prof.toc,plan.prof.peak],[plan.prof.tod,plan.prof.peak],[T0,plan.dstElev]];
+  c.beginPath();pts.forEach(([d,a],i)=>i?c.lineTo(X(d),Y(a)):c.moveTo(X(d),Y(a)));c.strokeStyle=C.route;c.lineWidth=2.4;c.stroke();
+  // conflict marks
+  if(terrain){c.fillStyle=C.bad;terrain.forEach(s=>{if(s.d>8&&s.d<T0-8&&altAt(s.d)-s.max<1000){c.fillRect(X(s.d)-1.5,Y(altAt(s.d))-3,3,6);}});}
+  [['T/C',plan.prof.toc],['T/D',plan.prof.tod]].forEach(([l,d])=>{const x=X(d),y=Y(plan.prof.peak);c.beginPath();c.arc(x,y,3.5,0,7);c.fillStyle=C.route;c.fill();c.fillStyle=C.ink;c.textAlign='center';c.fillText(l,x,y-8);});
+  c.textAlign='center';let lastX=-99;
+  plan.wps.forEach((p,i)=>{const x=X(p.cum);c.strokeStyle=i===selected?C.route:C.muted;c.lineWidth=1;c.beginPath();c.moveTo(x,Y(0));c.lineTo(x,Y(0)+5);c.stroke();
+    if(x-lastX>44||i===plan.wps.length-1||i===selected){c.fillStyle=i===selected?C.route:C.muted;c.fillText(p.ident,Math.min(Math.max(x,Lp+14),w-Rp-14),h-8);lastX=x;}});
+}
+
+/* ---------- selection ---------- */
+function select(i,fromMap){selected=i;
+  document.querySelectorAll('#log tr').forEach(tr=>tr.classList.toggle('sel',+tr.dataset.i===i));
+  markers.forEach((m,k)=>{const el=m.getElement()?.querySelector('.wpt');el&&el.classList.toggle('sel',k===i);});
+  if(i>=0&&fromMap){document.querySelector('#log tr[data-i="'+i+'"]')?.scrollIntoView({block:'nearest'});}
+  drawProf();}
+$('log').addEventListener('click',e=>{const tr=e.target.closest('tr');if(!tr)return;const i=+tr.dataset.i;
+  if(i===selected){select(-1);return;}const p=plan.wps[i];map.panTo([p.pos.lat,p.pos.lon]);select(i);});
+$('log').addEventListener('keydown',e=>{if(e.key==='Enter')e.target.closest('tr')?.click();});
+
+/* ---------- loading & storage ---------- */
+const STORE='routedesk.recents.v1';
+function getRecents(){try{return JSON.parse(localStorage.getItem(STORE)||'[]');}catch(e){return [];}}
+function saveRecent(p,xml){try{const key=p.depId+p.dstId+p.wps.length;let r=getRecents().filter(x=>x.key!==key);
+  r.unshift({key,label:p.depId+'–'+p.dstId,xml});localStorage.setItem(STORE,JSON.stringify(r.slice(0,8)));}catch(e){}}
+function drawRecents(){const r=getRecents(),el=$('recents');el.querySelectorAll('.chip').forEach(n=>n.remove());el.hidden=!r.length;
+  r.forEach(x=>{const b=document.createElement('button');b.type='button';b.className='chip'+(plan&&plan._key===x.key?' on':'');b.textContent=x.label;b.onclick=()=>load(x.xml,{save:false});el.appendChild(b);});}
+function load(xml,{save=true,sample=false}={}){
+  try{const p=parsePln(xml);p._key=p.depId+p.dstId+p.wps.length;plan=p;selected=-1;terrain=null;
+    if(p.cruise){$('crz').value=p.cruise;$('alertAlt').value=p.cruise;alertLayer.redraw();}
+    $('sampleBadge').hidden=!sample;$('sTer').textContent='—';$('sClr').textContent='—';$('sClr').className='v';
+    if(save&&!sample)saveRecent(p,xml);
+    render();drawRoute();refreshPlannedRunways();drawRecents();loadTerrain();
+    if(!sample)toast('Loaded '+p.depId+' to '+p.dstId+' · '+p.wps.length+' fixes');
+  }catch(err){toast(err.message,true);}
+}
+function readFile(f){if(!f)return;const r=new FileReader();r.onload=()=>load(String(r.result));r.onerror=()=>toast("Couldn't read that file. Try exporting it again.",true);r.readAsText(f);}
+$('file').addEventListener('change',e=>{readFile(e.target.files[0]);e.target.value='';});
+$('importBtn').addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();$('file').click();}});
+let dragN=0;
+addEventListener('dragenter',e=>{if([...(e.dataTransfer?.types||[])].includes('Files')){dragN++;$('drop').hidden=false;}});
+addEventListener('dragleave',()=>{dragN=Math.max(0,dragN-1);if(!dragN)$('drop').hidden=true;});
+addEventListener('dragover',e=>e.preventDefault());
+addEventListener('drop',e=>{e.preventDefault();dragN=0;$('drop').hidden=true;readFile(e.dataTransfer.files[0]);});
+addEventListener('paste',e=>{if(e.target.matches('input'))return;const t=e.clipboardData?.getData('text')||'';if(t.includes('FlightPlan.FlightPlan')){e.preventDefault();load(t);}});
+['gs','burn'].forEach(id=>$(id).addEventListener('input',()=>{if(plan)render();}));
+$('crz').addEventListener('input',()=>{if(!plan)return;render();});
+$('copyRoute').onclick=()=>{const s=$('routeStr').textContent;
+  const fb=()=>{const r=document.createRange();r.selectNodeContents($('routeStr'));const sel=getSelection();sel.removeAllRanges();sel.addRange(r);toast('Route selected. Press Ctrl+C to copy.');};
+  try{navigator.clipboard.writeText(s).then(()=>toast('Route copied'),fb);}catch(e){fb();}};
+let tt;function toast(m,err){let el=document.querySelector('.toast');if(!el){el=document.createElement('div');el.className='toast';el.setAttribute('role','status');document.body.appendChild(el);}
+  el.textContent=m;el.classList.toggle('err',!!err);el.hidden=false;clearTimeout(tt);tt=setTimeout(()=>el.hidden=true,err?5000:2400);}
+
+new ResizeObserver(()=>{map.invalidateSize();drawProf();}).observe($('map'));
+new ResizeObserver(()=>drawProf()).observe(profCv);
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change',drawProf);
+document.fonts&&document.fonts.ready.then(drawProf);
+
+/* ---------- sample plan (example data, KSEA–KSFO via V23) ---------- */
+function dms(v,pos,neg){const s=v<0?neg:pos;v=Math.abs(v);const d=Math.floor(v),mf=(v-d)*60,m=Math.floor(mf),sec=((mf-m)*60).toFixed(2);return `${s}${d}° ${m}' ${sec}"`;}
+function wp(id,type,lat,lon,alt,extra=''){return `<ATCWaypoint id="${id}"><ATCWaypointType>${type}</ATCWaypointType><WorldPosition>${dms(lat,'N','S')},${dms(lon,'E','W')},+${alt.toFixed(2).padStart(9,'0')}</WorldPosition>${extra}<ICAO><ICAOIdent>${id}</ICAOIdent></ICAO></ATCWaypoint>`;}
+const SAMPLE=`<?xml version="1.0" encoding="UTF-8"?><SimBase.Document Type="AceXML" version="1,0"><FlightPlan.FlightPlan>
+<Title>KSEA to KSFO</Title><FPType>IFR</FPType><CruisingAlt>11000</CruisingAlt>
+<DepartureID>KSEA</DepartureID><DepartureLLA>${dms(47.449,'N','S')},${dms(-122.3093,'E','W')},+000433.00</DepartureLLA>
+<DestinationID>KSFO</DestinationID><DestinationLLA>${dms(37.6189,'N','S')},${dms(-122.375,'E','W')},+000013.00</DestinationLLA>
+<DepartureName>Seattle-Tacoma Intl</DepartureName><DestinationName>San Francisco Intl</DestinationName>
+<DepartureDetails><RunwayNumberFP>16</RunwayNumberFP><RunwayDesignatorFP>LEFT</RunwayDesignatorFP></DepartureDetails>
+<ApproachDetails><RunwayNumberFP>28</RunwayNumberFP><RunwayDesignatorFP>RIGHT</RunwayDesignatorFP></ApproachDetails>
+${wp('KSEA','Airport',47.449,-122.3093,433)}${wp('SEA','VOR',47.4354,-122.3097,0)}
+${wp('OLM','VOR',46.9716,-122.9022,0,'<ATCAirway>V23</ATCAirway>')}${wp('BTG','VOR',45.7476,-122.5915,0,'<ATCAirway>V23</ATCAirway>')}
+${wp('EUG','VOR',44.1206,-123.2228,0,'<ATCAirway>V23</ATCAirway>')}${wp('OED','VOR',42.4795,-122.9131,0,'<ATCAirway>V23</ATCAirway>')}
+${wp('RBL','VOR',40.0989,-122.2365,0)}${wp('PYE','VOR',38.0797,-122.8678,0)}${wp('KSFO','Airport',37.6189,-122.375,13)}
+</FlightPlan.FlightPlan></SimBase.Document>`;
+
+const rec=getRecents();
+if(rec.length) load(rec[0].xml,{save:false}); else {$('gs').value=260;$('burn').value=650;load(SAMPLE,{sample:true});}
+})();
+</script>
+</body>
+</html>
