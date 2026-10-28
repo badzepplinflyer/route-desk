@@ -45,6 +45,16 @@ input[type=file]{position:absolute;width:1px;height:1px;opacity:0;pointer-events
 
 .recents{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .recents .lbl{font:600 11px var(--f-body);letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+.chipw{display:inline-flex;align-items:stretch;border:1px solid var(--line);border-radius:999px;overflow:hidden}
+.chipw.on{border-color:var(--route)}
+.chipw .chip{border:0;border-radius:0}
+.chipw.on .chip{color:var(--route)}
+.chipx{border:0;border-left:1px solid var(--line);background:transparent;color:var(--muted);font:600 14px var(--f-body);padding:0 8px;cursor:pointer;line-height:1}
+.chipx:hover{color:var(--bad);background:var(--route-soft)}
+.chipx:focus-visible,.chipclr:focus-visible,.toastbtn:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.chipclr{border:0;background:none;color:var(--muted);font:600 11px var(--f-body);letter-spacing:.06em;text-transform:uppercase;cursor:pointer;padding:4px 6px}
+.chipclr:hover{color:var(--bad)}
+.toastbtn{margin-left:12px;border:1px solid currentColor;background:transparent;color:inherit;font:600 12px var(--f-body);padding:3px 10px;border-radius:4px;cursor:pointer}
 .chip{font:500 12px var(--f-mono);background:transparent;border:1px solid var(--line);color:var(--ink);padding:4px 9px;border-radius:999px;cursor:pointer}
 .chip.on{border-color:var(--route);color:var(--route)}
 
@@ -932,12 +942,21 @@ $('log').addEventListener('keydown',e=>{if(e.key==='Enter')e.target.closest('tr'
 /* ---------- loading & storage ---------- */
 const STORE='routedesk.recents.v1';
 function getRecents(){try{return JSON.parse(localStorage.getItem(STORE)||'[]');}catch(e){return [];}}
-function persist(){if(!plan||plan.sample)return;try{let r=getRecents().filter(x=>x.key!==plan._key);
+function persist(){if(!plan||plan.sample||plan.noSave)return;try{let r=getRecents().filter(x=>x.key!==plan._key);
   r.unshift({key:plan._key,label:plan.setup.dep+'–'+plan.setup.arr,xml:plan.xml||null,setup:{...plan.setup},direct:plan.direct,cruise:+$('crz').value||null,brief:plan.brief,userRoute:plan.userRoute||null});
   localStorage.setItem(STORE,JSON.stringify(r.slice(0,8)));}catch(e){}drawRecents();}
-function drawRecents(){const r=getRecents(),el=$('recents');el.querySelectorAll('.chip').forEach(n=>n.remove());el.hidden=!r.length;
-  r.forEach(x=>{const b=document.createElement('button');b.type='button';b.className='chip'+(plan&&plan._key===x.key?' on':'');b.textContent=x.label;
-    b.onclick=()=>x.xml?load(x.xml,{entry:x}):loadScratch(x);el.appendChild(b);});}
+function drawRecents(){const r=getRecents(),el=$('recents');el.querySelectorAll('.chipw,.chipclr').forEach(n=>n.remove());el.hidden=!r.length;
+  r.forEach(x=>{const w=document.createElement('span');w.className='chipw'+(plan&&plan._key===x.key?' on':'');
+    const b=document.createElement('button');b.type='button';b.className='chip';b.textContent=x.label;b.onclick=()=>x.xml?load(x.xml,{entry:x}):loadScratch(x);
+    const d=document.createElement('button');d.type='button';d.className='chipx';d.setAttribute('aria-label','Remove '+x.label);d.textContent='×';d.onclick=()=>removeRecent(x.key);
+    w.append(b,d);el.appendChild(w);});
+  if(r.length>1){const c=document.createElement('button');c.type='button';c.className='chipclr';c.textContent='Clear all';c.onclick=clearRecents;el.appendChild(c);}}
+function saveRecents(list){try{localStorage.setItem(STORE,JSON.stringify(list));}catch(e){}}
+function removeRecent(key){const before=getRecents(),x=before.find(e=>e.key===key);if(!x)return;
+  saveRecents(before.filter(e=>e.key!==key));if(plan&&plan._key===key)plan.noSave=true;drawRecents();
+  toast('Removed '+x.label,false,{label:'Undo',fn:()=>{saveRecents(before);if(plan&&plan._key===key)plan.noSave=false;drawRecents();}});}
+function clearRecents(){const before=getRecents();saveRecents([]);if(plan)plan.noSave=true;drawRecents();
+  toast('Cleared '+before.length+' recent flights',false,{label:'Undo',fn:()=>{saveRecents(before);if(plan)plan.noSave=false;drawRecents();}});}
 function defaultSetup(src){return {dep:src.depId,depRwy:src.depRwy||'',arr:src.dstId,arrRwy:src.dstRwy||'',app:src.wps.some(p=>p.app)?'FILE':'NONE'};}
 function load(xml,{sample=false,entry=null}={}){
   const prevBrief=plan&&plan.brief?{...plan.brief}:null;
@@ -972,8 +991,10 @@ $('crz').addEventListener('input',()=>{if(!plan)return;render();});
 $('copyRoute').onclick=()=>{const s=$('routeStr').textContent;
   const fb=()=>{const r=document.createRange();r.selectNodeContents($('routeStr'));const sel=getSelection();sel.removeAllRanges();sel.addRange(r);toast('Route selected. Press Ctrl+C to copy.');};
   try{navigator.clipboard.writeText(s).then(()=>toast('Route copied'),fb);}catch(e){fb();}};
-let tt;function toast(m,err){let el=document.querySelector('.toast');if(!el){el=document.createElement('div');el.className='toast';el.setAttribute('role','status');document.body.appendChild(el);}
-  el.textContent=m;el.classList.toggle('err',!!err);el.hidden=false;clearTimeout(tt);tt=setTimeout(()=>el.hidden=true,err?5000:2400);}
+let tt;function toast(m,err,action){let el=document.querySelector('.toast');if(!el){el=document.createElement('div');el.className='toast';el.setAttribute('role','status');document.body.appendChild(el);}
+  el.textContent=m;el.classList.toggle('err',!!err);
+  if(action){const b=document.createElement('button');b.type='button';b.className='toastbtn';b.textContent=action.label;b.onclick=()=>{el.hidden=true;action.fn();};el.appendChild(b);}
+  el.hidden=false;clearTimeout(tt);tt=setTimeout(()=>el.hidden=true,action?(action.ms||7000):err?5000:2400);}
 
 new ResizeObserver(()=>{map.invalidateSize();drawProf();}).observe($('map'));
 new ResizeObserver(()=>drawProf()).observe(profCv);
@@ -1825,6 +1846,13 @@ function showView(v){const m=v==='map';$('planView').hidden=m;$('mapView').hidde
   if(m)setTimeout(()=>{map.invalidateSize();if(pendingFit){map.fitBounds(pendingFit,{padding:[40,40]});pendingFit=null;}updateLegLabels();drawProf();},30);else closePreview();}
 $('tabPlan').onclick=()=>showView('plan');$('tabMap').onclick=()=>showView('map');$('toMap').onclick=()=>showView('map');
 addEventListener('hashchange',()=>showView(location.hash==='#map'?'map':'plan'));
+
+
+/* ---------- tell the person when a newer version is published ---------- */
+const APP_VERSION='2026-10-28.2';
+async function checkForUpdate(){try{const t=await (await fetch(location.pathname+'?v='+Date.now(),{cache:'no-store'})).text();
+  const m=t.match(/APP_VERSION='([^']+)'/);if(m&&m[1]!==APP_VERSION)toast('A newer version of Route Desk is available',false,{label:'Reload',fn:()=>location.reload(),ms:60000});}catch(e){}}
+setTimeout(checkForUpdate,8000);setInterval(checkForUpdate,10*60000);
 
 /* ---------- sample plan (example data, KSEA–KSFO via V23) ---------- */
 function dms(v,pos,neg){const s=v<0?neg:pos;v=Math.abs(v);const d=Math.floor(v),mf=(v-d)*60,m=Math.floor(mf),sec=((mf-m)*60).toFixed(2);return `${s}${d}° ${m}' ${sec}"`;}
