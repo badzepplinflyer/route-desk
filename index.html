@@ -74,7 +74,7 @@ input[type=file]{position:absolute;width:1px;height:1px;opacity:0;pointer-events
 .rwy{background:#c8102e;color:#fff;border:1.5px solid #fff;font:700 12px var(--f-mono);padding:1px 5px;border-radius:2px;box-shadow:0 1px 3px rgba(0,0,0,.35)}
 .rwy.plan{background:#c0177a;outline:2px solid #fff}
 .gate{background:rgba(10,106,134,.92);color:#fff;font:600 10px var(--f-mono);padding:0 3px;border-radius:2px}
-.diag{margin-top:5px;font:600 10px var(--f-body);letter-spacing:.08em;text-transform:uppercase;border:1px solid var(--line);background:var(--bg);color:var(--accent);padding:4px 8px;border-radius:4px;cursor:pointer}
+.diag{font:600 10px var(--f-body);letter-spacing:.08em;text-transform:uppercase;border:1px solid var(--line);background:var(--bg);color:var(--accent);padding:4px 8px;border-radius:4px;cursor:pointer}
 .diag:hover{border-color:var(--accent)}
 .diag:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .wpt{position:absolute;transform:translate(-50%,-50%);pointer-events:auto;cursor:pointer}
@@ -91,13 +91,33 @@ input[type=file]{position:absolute;width:1px;height:1px;opacity:0;pointer-events
 .profbox{height:200px;position:relative}
 .profbox canvas{display:block;width:100%;height:100%}
 
-.od{padding:12px;display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--line)}
-.od .apt{min-width:0}
-.od .icao{font:700 30px var(--f-display);letter-spacing:.05em;line-height:1}
-.od .nm{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.od .rwy-t{font:500 11px var(--f-mono);color:var(--accent)}
-.od .arrow{flex:1;height:2px;background:repeating-linear-gradient(90deg,var(--route) 0 8px,transparent 8px 13px);min-width:30px}
+.od{padding:12px;display:grid;grid-template-columns:minmax(0,1fr) 26px minmax(0,1fr);align-items:start;gap:10px;border-bottom:1px solid var(--line)}
+.od .apt{position:relative;display:flex;flex-direction:column;gap:6px;min-width:0}
 .od .apt.r{text-align:right}
+.od .lab{font:600 10px var(--f-body);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.icao-in{font:700 28px var(--f-display);letter-spacing:.05em;text-transform:uppercase;width:100%;min-width:0;border:0;border-bottom:2px solid var(--line);background:transparent;color:var(--ink);padding:0 0 2px;line-height:1.1;border-radius:0}
+.apt.r .icao-in{text-align:right}
+.icao-in:focus{outline:none;border-bottom-color:var(--accent)}
+.icao-in::placeholder{color:var(--line)}
+.od .nm{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-height:17px}
+.od select{font:500 12px var(--f-mono);padding:6px 7px;border:1px solid var(--line);border-radius:5px;background:var(--bg);color:var(--ink);width:100%;min-width:0}
+.od select:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.od .arrow{margin-top:40px;height:2px;background:repeating-linear-gradient(90deg,var(--route) 0 8px,transparent 8px 13px)}
+.od .diag{align-self:flex-start;margin-top:0}
+.od .apt.r .diag{align-self:flex-end}
+.ac{position:absolute;top:56px;left:0;width:min(380px,calc(100vw - 48px));z-index:1500;background:var(--panel);border:1px solid var(--line);border-radius:6px;box-shadow:0 8px 22px rgba(0,0,0,.2);overflow:hidden;text-align:left}
+.apt.r .ac{left:auto;right:0}
+.ac button{display:block;width:100%;text-align:left;border:0;border-bottom:1px solid var(--line);background:transparent;color:var(--ink);padding:7px 10px;font:400 12px var(--f-body);cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ac button:last-child{border-bottom:0}
+.ac button b{font:600 13px var(--f-mono);margin-right:7px}
+.ac button span{color:var(--muted)}
+.ac button.on,.ac button:hover{background:var(--route-soft)}
+.odbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:8px 12px;border-bottom:1px solid var(--line)}
+.odbar .btn{padding:5px 10px;font-size:12px}
+.odbar .hint{font:400 11px var(--f-mono);color:var(--muted);margin-left:auto}
+.appinfo{padding:8px 12px;border-bottom:1px solid var(--line);font:400 11.5px var(--f-mono);color:var(--muted);line-height:1.5}
+.appinfo b{color:var(--route);font-weight:600}
+.appinfo:empty{display:none}
 .sum{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;background:var(--line);border-radius:0 0 8px 8px;overflow:hidden}
 .sum div{background:var(--panel);padding:10px 12px;min-width:0}
 .sum .k{font:600 10px var(--f-body);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
@@ -145,6 +165,7 @@ tfoot td{font-weight:500;border-bottom:0;color:var(--muted)}
     <div class="actions">
       <input type="file" id="file" accept=".pln,.xml,application/xml,text/xml">
       <label class="btn primary" for="file" tabindex="0" id="importBtn">Import .pln</label>
+      <button class="btn" id="newFlight" type="button">New flight</button>
       <button class="btn" id="copyRoute" type="button">Copy route</button>
     </div>
   </header>
@@ -182,9 +203,30 @@ tfoot td{font-weight:500;border-bottom:0;color:var(--muted)}
     <div class="col">
       <section class="panel">
         <div class="od">
-          <div class="apt"><div class="icao" id="depIcao">----</div><div class="nm" id="depName"></div><div class="rwy-t" id="depRwy"></div><button type="button" class="diag" id="depDiag">Airport layout</button></div>
-          <div class="arrow"></div>
-          <div class="apt r"><div class="icao" id="arrIcao">----</div><div class="nm" id="arrName"></div><div class="rwy-t" id="arrRwy"></div><button type="button" class="diag" id="arrDiag">Airport layout</button></div>
+          <div class="apt" id="depBox">
+            <label class="lab" for="depInput">Departure</label>
+            <input id="depInput" class="icao-in" autocomplete="off" spellcheck="false" placeholder="ICAO" aria-autocomplete="list">
+            <div class="ac" id="depAc" hidden></div>
+            <div class="nm" id="depName"></div>
+            <select id="depRwySel" aria-label="Departure runway"></select>
+            <button type="button" class="diag" id="depDiag">Airport layout</button>
+          </div>
+          <div class="arrow" aria-hidden="true"></div>
+          <div class="apt r" id="arrBox">
+            <label class="lab" for="arrInput">Arrival</label>
+            <input id="arrInput" class="icao-in" autocomplete="off" spellcheck="false" placeholder="ICAO" aria-autocomplete="list">
+            <div class="ac" id="arrAc" hidden></div>
+            <div class="nm" id="arrName"></div>
+            <select id="arrRwySel" aria-label="Arrival runway"></select>
+            <select id="appSel" aria-label="Approach type"></select>
+            <button type="button" class="diag" id="arrDiag">Airport layout</button>
+          </div>
+        </div>
+        <div class="appinfo" id="appInfo"></div>
+        <div class="odbar">
+          <button type="button" class="btn" id="goDirect">Go direct</button>
+          <button type="button" class="btn" id="resetPln">Reset to file</button>
+          <span class="hint" id="dbHint"></span>
         </div>
         <div class="sum">
           <div><div class="k">Distance</div><div class="v" id="sDist">—</div></div>
@@ -299,15 +341,18 @@ function compute(){
   w.forEach((p,i)=>{ if(i===0){p.leg=0;p.trk=null;p.cum=0;return;}
     p.leg=gcDist(w[i-1].pos,p.pos); p.trk=gcBrg(w[i-1].pos,p.pos); cum+=p.leg; p.cum=cum; });
   plan.total=cum;
-  const crz=+$('crz').value||plan.cruise||10000;
-  let toc=(crz-plan.depElev)/1000*2.5, tod=(crz-plan.dstElev)/1000*3, peak=crz;
-  if(toc+tod>cum){const k=cum/(toc+tod);toc*=k;tod*=k;peak=plan.depElev+toc/2.5*1000;}
-  plan.prof={crz,peak,toc,tod:cum-tod};
+  const crz=+$('crz').value||plan.cruise||10000, A=plan.appInfo;
+  // descent ends at the final approach fix (or the runway when there's no approach)
+  const endD=A?w[A.fafIdx].cum:cum, endA=A?A.fafAlt:plan.dstElev;
+  let toc=(crz-plan.depElev)/1000*2.5, des=Math.max(0,(crz-endA)/1000*3), peak=crz;
+  if(toc+des>endD){const k=endD/((toc+des)||1);toc*=k;des*=k;peak=Math.max(endA,plan.depElev+toc/2.5*1000);}
+  plan.prof={crz,peak,toc,tod:endD-des,endD,endA,thrA:plan.dstElev+(A?50:0)};
   w.forEach(p=>{p.palt=altAt(p.cum);});
 }
 function altAt(d){const P=plan.prof,T=plan.total;
+  if(d>=P.endD) return P.endA+(P.thrA-P.endA)*((d-P.endD)/((T-P.endD)||1));
   if(d<=P.toc) return plan.depElev+(P.peak-plan.depElev)*(P.toc?d/P.toc:1);
-  if(d>=P.tod) return plan.dstElev+(P.peak-plan.dstElev)*((T-d)/((T-P.tod)||1));
+  if(d>=P.tod) return P.endA+(P.peak-P.endA)*((P.endD-d)/((P.endD-P.tod)||1));
   return P.peak;}
 const fmtEte=h=>{if(!isFinite(h))return '—';const m=Math.round(h*60);return Math.floor(m/60)+':'+String(m%60).padStart(2,'0');};
 const fmtAlt=a=>a>=18000?'FL'+String(Math.round(a/100)).padStart(3,'0'):(Math.round(a/100)*100).toLocaleString();
@@ -370,9 +415,7 @@ function render(){
   compute();
   const gs=+$('gs').value||1,burn=+$('burn').value||0,ete=plan.total/gs;
   $('planTitle').textContent=plan.title||(plan.depId+' to '+plan.dstId);
-  $('depIcao').textContent=plan.depId;$('arrIcao').textContent=plan.dstId;
-  $('depName').textContent=plan.depName;$('arrName').textContent=plan.dstName;
-  $('depRwy').textContent=plan.depRwy?'RWY '+plan.depRwy:'';$('arrRwy').textContent=plan.dstRwy?'RWY '+plan.dstRwy:'';
+  renderSetup();
   $('sDist').innerHTML=Math.round(plan.total)+'<small>nm</small>';
   $('sEte').innerHTML=fmtEte(ete)+'<small>h:m</small>';
   $('sFuel').innerHTML=Math.round(ete*burn).toLocaleString()+'<small>lb</small>';
@@ -434,12 +477,18 @@ const SYM={
   USR:'<svg width="12" height="12" viewBox="-6 -6 12 12"><rect x="-4.5" y="-4.5" width="9" height="9" fill="#fff" stroke="#16212a" stroke-width="1.6"/></svg>'
 };
 let routeLayer=L.layerGroup().addTo(map), markers=[], legLabels=[];
-function drawRoute(){
+function drawRoute(fit=true){
   routeLayer.clearLayers();markers=[];legLabels=[];
   const w=plan.wps,pts=[];
   w.forEach((p,i)=>{if(i===0){pts.push([p.pos.lat,p.pos.lon]);return;}
     const n=Math.min(60,Math.max(1,Math.ceil(p.leg/25)));let prevLon=pts[pts.length-1][1];
     for(let k=1;k<=n;k++){const q=gcInterp(w[i-1].pos,p.pos,k/n);let lon=q.lon;while(lon-prevLon>180)lon-=360;while(lon-prevLon<-180)lon+=360;prevLon=lon;pts.push([q.lat,lon]);}});
+  if(plan.appInfo){const A=plan.appInfo,e=A.end,back=(e.course+180)%360,len=(A.T.ifd||A.T.fin)+2;
+    if(A.T.feather){const a=gcDest(e.land,back-2.5,len),b=gcDest(e.land,back+2.5,len);
+      L.polygon([[e.land.lat,e.land.lon],[a.lat,a.lon],[b.lat,b.lon]],{color:'#c0177a',weight:1,fillColor:'#c0177a',fillOpacity:.12,interactive:false}).addTo(routeLayer);}
+    const f=gcDest(e.land,back,len);L.polyline([[e.land.lat,e.land.lon],[f.lat,f.lon]],{color:'#c0177a',weight:1.5,dashArray:'6 6',interactive:false}).addTo(routeLayer);}
+  if(plan.depEnd){const e=plan.depEnd,f=gcDest(e.opp,e.course,3);
+    L.polyline([[e.thr.lat,e.thr.lon],[f.lat,f.lon]],{color:'#0a6a86',weight:2.5,dashArray:'5 5',interactive:false}).addTo(routeLayer);}
   L.polyline(pts,{color:'#ffffff',weight:8,opacity:.75,interactive:false}).addTo(routeLayer);
   L.polyline(pts,{color:'#c0177a',weight:3.5,opacity:1,interactive:false}).addTo(routeLayer);
   w.forEach((p,i)=>{if(!i)return;const mid=gcInterp(w[i-1].pos,p.pos,.5);
@@ -449,7 +498,7 @@ function drawRoute(){
     const m=L.marker([p.pos.lat,p.pos.lon],{keyboard:false,title:p.ident,riseOnHover:true,
       icon:L.divIcon({className:'',iconSize:null,html:`<div class="wpt ${t==='APT'?'apt':''}${i===selected?' sel':''}">${SYM[t]}<span>${esc(p.ident)}</span></div>`})}).addTo(routeLayer);
     m.on('click',()=>select(i===selected?-1:i,true));markers.push(m);});
-  map.fitBounds(L.latLngBounds(pts),{padding:[40,40]});
+  if(fit)map.fitBounds(L.latLngBounds(pts),{padding:[40,40]});
   updateLegLabels();
 }
 function updateLegLabels(){
@@ -609,10 +658,11 @@ function drawProf(){
     c.beginPath();c.moveTo(X(0),Y(0));terrain.forEach(s=>c.lineTo(X(s.d),Y(s.ctr)));c.lineTo(X(T0),Y(0));c.closePath();c.fillStyle=C.ter;c.fill();
   }
   // planned path
-  const pts=[[0,plan.depElev],[plan.prof.toc,plan.prof.peak],[plan.prof.tod,plan.prof.peak],[T0,plan.dstElev]];
+  const P=plan.prof,pts=[[0,plan.depElev],[P.toc,P.peak],[P.tod,P.peak],[P.endD,P.endA],[T0,P.thrA]];
   c.beginPath();pts.forEach(([d,a],i)=>i?c.lineTo(X(d),Y(a)):c.moveTo(X(d),Y(a)));c.strokeStyle=C.route;c.lineWidth=2.4;c.stroke();
   // conflict marks
   if(terrain){c.fillStyle=C.bad;terrain.forEach(s=>{if(s.d>8&&s.d<T0-8&&altAt(s.d)-s.max<1000){c.fillRect(X(s.d)-1.5,Y(altAt(s.d))-3,3,6);}});}
+  if(plan.appInfo){const x=X(P.endD),y=Y(P.endA);c.beginPath();c.arc(x,y,3.5,0,7);c.fillStyle=C.route;c.fill();c.fillStyle=C.ink;c.textAlign='center';c.fillText(plan.appInfo.T.fin?'GATE':'FAF',x,y-8);}
   [['T/C',plan.prof.toc],['T/D',plan.prof.tod]].forEach(([l,d])=>{const x=X(d),y=Y(plan.prof.peak);c.beginPath();c.arc(x,y,3.5,0,7);c.fillStyle=C.route;c.fill();c.fillStyle=C.ink;c.textAlign='center';c.fillText(l,x,y-8);});
   c.textAlign='center';let lastX=-99;
   plan.wps.forEach((p,i)=>{const x=X(p.cum);c.strokeStyle=i===selected?C.route:C.muted;c.lineWidth=1;c.beginPath();c.moveTo(x,Y(0));c.lineTo(x,Y(0)+5);c.stroke();
@@ -632,18 +682,26 @@ $('log').addEventListener('keydown',e=>{if(e.key==='Enter')e.target.closest('tr'
 /* ---------- loading & storage ---------- */
 const STORE='routedesk.recents.v1';
 function getRecents(){try{return JSON.parse(localStorage.getItem(STORE)||'[]');}catch(e){return [];}}
-function saveRecent(p,xml){try{const key=p.depId+p.dstId+p.wps.length;let r=getRecents().filter(x=>x.key!==key);
-  r.unshift({key,label:p.depId+'–'+p.dstId,xml});localStorage.setItem(STORE,JSON.stringify(r.slice(0,8)));}catch(e){}}
+function persist(){if(!plan||plan.sample)return;try{let r=getRecents().filter(x=>x.key!==plan._key);
+  r.unshift({key:plan._key,label:plan.setup.dep+'–'+plan.setup.arr,xml:plan.xml||null,setup:{...plan.setup},direct:plan.direct,cruise:+$('crz').value||null});
+  localStorage.setItem(STORE,JSON.stringify(r.slice(0,8)));}catch(e){}drawRecents();}
 function drawRecents(){const r=getRecents(),el=$('recents');el.querySelectorAll('.chip').forEach(n=>n.remove());el.hidden=!r.length;
-  r.forEach(x=>{const b=document.createElement('button');b.type='button';b.className='chip'+(plan&&plan._key===x.key?' on':'');b.textContent=x.label;b.onclick=()=>load(x.xml,{save:false});el.appendChild(b);});}
-function load(xml,{save=true,sample=false}={}){
-  try{const p=parsePln(xml);p._key=p.depId+p.dstId+p.wps.length;plan=p;selected=-1;terrain=null;
-    if(p.cruise){$('crz').value=p.cruise;$('alertAlt').value=p.cruise;alertLayer.redraw();}
-    $('sampleBadge').hidden=!sample;$('sTer').textContent='—';$('sClr').textContent='—';$('sClr').className='v';
-    if(save&&!sample)saveRecent(p,xml);
-    render();drawRoute();refreshPlannedRunways();drawRecents();loadTerrain();
-    if(!sample)toast('Loaded '+p.depId+' to '+p.dstId+' · '+p.wps.length+' fixes');
-  }catch(err){toast(err.message,true);}
+  r.forEach(x=>{const b=document.createElement('button');b.type='button';b.className='chip'+(plan&&plan._key===x.key?' on':'');b.textContent=x.label;
+    b.onclick=()=>x.xml?load(x.xml,{entry:x}):loadScratch(x);el.appendChild(b);});}
+function defaultSetup(src){return {dep:src.depId,depRwy:src.depRwy||'',arr:src.dstId,arrRwy:src.dstRwy||'',app:src.wps.some(p=>p.app)?'FILE':'NONE'};}
+function load(xml,{sample=false,entry=null}={}){
+  let src;try{src=parsePln(xml);}catch(err){toast(err.message,true);return;}
+  plan={src,xml:sample?null:xml,sample,_key:entry?.key||(src.depId+src.dstId+src.wps.length),type:src.type,cruise:src.cruise,direct:false,setup:defaultSetup(src)};
+  if(entry&&entry.setup){Object.assign(plan.setup,entry.setup);plan.direct=!!entry.direct;}
+  const crz=entry?.cruise||src.cruise;if(crz){$('crz').value=crz;$('alertAlt').value=crz;alertLayer.redraw();}
+  $('sampleBadge').hidden=!sample;
+  if(applySetup(true)&&!sample&&!entry)toast('Loaded '+src.depId+' to '+src.dstId+' · '+src.wps.length+' fixes');
+}
+async function loadScratch(entry){
+  if(!(await loadDB())){toast("This saved flight needs the airport database, which only loads on the web version.",true);return;}
+  plan={src:null,xml:null,sample:false,_key:entry.key,type:'—',cruise:entry.cruise||null,direct:true,setup:{...entry.setup}};
+  if(entry.cruise){$('crz').value=entry.cruise;$('alertAlt').value=entry.cruise;alertLayer.redraw();}
+  $('sampleBadge').hidden=true;applySetup(true);
 }
 function readFile(f){if(!f)return;const r=new FileReader();r.onload=()=>load(String(r.result));r.onerror=()=>toast("Couldn't read that file. Try exporting it again.",true);r.readAsText(f);}
 $('file').addEventListener('change',e=>{readFile(e.target.files[0]);e.target.value='';});
@@ -667,6 +725,189 @@ new ResizeObserver(()=>drawProf()).observe(profCv);
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change',drawProf);
 document.fonts&&document.fonts.ready.then(drawProf);
 
+/* ---------- airport database (OurAirports, bundled in data/airports.json) ---------- */
+let DB=null, DBbyCode=null, dbPromise=null;
+function loadDB(){
+  if(dbPromise)return dbPromise;
+  $('dbHint').textContent='Loading airports…';
+  dbPromise=fetch('data/airports.json').then(r=>{if(!r.ok)throw new Error('http');return r.json();}).then(d=>{
+    DB=d.a;DBbyCode=new Map();
+    DB.forEach(r=>DBbyCode.set(r[0].toUpperCase(),r));
+    DB.forEach(r=>{if(r[9])r[9].split(' ').forEach(a=>{a=a.toUpperCase();if(!DBbyCode.has(a))DBbyCode.set(a,r);});});
+    $('dbHint').textContent=DB.length.toLocaleString()+' airports · OurAirports';return true;
+  }).catch(()=>{$('dbHint').textContent='Airport search works on the web version';return false;});
+  return dbPromise;
+}
+function aptObj(r){
+  if(r._o)return r._o;
+  const a={code:r[0],name:r[1],city:r[2],country:r[3],lat:r[4],lon:r[5],elev:r[6]??0,type:r[7],iata:r[8],ends:[]},ctr={lat:a.lat,lon:a.lon};
+  r[10].forEach(w=>{const len=w[2],A={lat:w[6],lon:w[7]},B={lat:w[11],lon:w[12]};
+    const mk=(id,t,o,elev,hdg,dthr)=>{if(!id)return;const num=parseInt(id,10);
+      let course=(t.lat!=null&&o.lat!=null)?gcBrg(t,o):(hdg!=null?hdg:(num?num*10%360:null));if(course==null)return;
+      const half=(len||5000)/2/6076.12;
+      const thr=t.lat!=null?{lat:t.lat,lon:t.lon}:gcDest(ctr,course+180,half), opp=o.lat!=null?{lat:o.lat,lon:o.lon}:gcDest(ctr,course,half);
+      a.ends.push({id,len,wid:w[3],surf:w[4],lit:w[5],thr,opp,course,land:dthr?gcDest(thr,course,dthr/6076.12):thr,elev:elev??a.elev,approx:t.lat==null});};
+    mk(w[0],A,B,w[8],w[9],w[10]);mk(w[1],B,A,w[13],w[14],w[15]);});
+  a.ends.sort((x,y)=>((parseInt(x.id,10)||99)-(parseInt(y.id,10)||99))||x.id.localeCompare(y.id));
+  a.oaEnds=a.ends;
+  return r._o=a;
+}
+// Runways from OpenStreetMap (more current than OurAirports); replaces the list once it arrives
+function ensureOsmRunways(apt){
+  if(!apt||apt.osmTried)return;apt.osmTried=true;
+  const q=`[out:json][timeout:20];way["aeroway"="runway"](around:7000,${apt.lat},${apt.lon});out geom;`;
+  (async()=>{for(const url of OVERPASS){try{const r=await fetch(url,{method:'POST',body:'data='+encodeURIComponent(q),headers:{'Content-Type':'application/x-www-form-urlencoded'}});
+      if(r.ok)return r.json();}catch(e){}}return null;})().then(d=>{
+    if(!d)return;const ends=[];
+    (d.elements||[]).forEach(el=>{const t=el.tags||{},g=(el.geometry||[]).filter(Boolean);if(!t.ref||g.length<2||t.area==='yes')return;
+      const A={lat:g[0].lat,lon:g[0].lon},B={lat:g[g.length-1].lat,lon:g[g.length-1].lon},brg=gcBrg(A,B);
+      const parts=t.ref.split('/').map(x=>x.trim()).filter(Boolean);if(!parts.length||!parts.every(x=>/^\d{1,2}[LRCW]?$/i.test(x)))return;
+      const diff=(id,b)=>Math.abs(((parseInt(id,10)*10-b)%360+540)%360-180);
+      let atA=parts[0],atB=parts[1]||null;if(atB&&diff(atB,brg)<diff(atA,brg)){atA=parts[1];atB=parts[0];}
+      const lenFt=Math.round(gcDist(A,B)*6076.12),wFt=t.width?Math.round(parseWidth(t.width,45)*3.28084):null,surf=(t.surface||'').slice(0,12);
+      const elevFor=id=>{const m=apt.oaEnds.find(e=>normRwy(e.id)===normRwy(id));return m?m.elev:apt.elev;};
+      ends.push({id:atA.toUpperCase(),len:lenFt,wid:wFt,surf,lit:0,thr:A,opp:B,land:A,course:brg,elev:elevFor(atA),src:'osm'});
+      if(atB)ends.push({id:atB.toUpperCase(),len:lenFt,wid:wFt,surf,lit:0,thr:B,opp:A,land:B,course:(brg+180)%360,elev:elevFor(atB),src:'osm'});});
+    if(!ends.length)return;
+    const seen=new Set();apt.ends=ends.filter(e=>!seen.has(normRwy(e.id))&&seen.add(normRwy(e.id)))
+      .sort((x,y)=>((parseInt(x.id,10)||99)-(parseInt(y.id,10)||99))||x.id.localeCompare(y.id));
+    apt.rwSrc='osm';
+    if(plan&&(plan.depId===apt.code.toUpperCase()||plan.dstId===apt.code.toUpperCase()))applySetup(false);
+  });
+}
+function aptByCode(code){if(!DBbyCode||!code)return null;const r=DBbyCode.get(String(code).toUpperCase().trim());return r?aptObj(r):null;}
+function findEnd(apt,id){return apt&&id?apt.ends.find(e=>normRwy(e.id)===normRwy(id))||null:null;}
+function searchAirports(q){
+  if(!DB)return [];q=q.trim().toUpperCase();if(q.length<2)return [];
+  const out=[];
+  for(const r of DB){const code=r[0].toUpperCase();let sc=null;
+    if(code===q)sc=0;else if(r[8]===q||(' '+r[9].toUpperCase()+' ').includes(' '+q+' '))sc=1;else if(code.startsWith(q))sc=2;
+    else if(q.length>=3&&(r[1].toUpperCase().includes(q)||r[2].toUpperCase().includes(q)))sc=4;
+    if(sc!==null)out.push([sc+r[7]*0.3,r]);}
+  out.sort((a,b)=>a[0]-b[0]);return out.slice(0,8).map(x=>x[1]);
+}
+function wireSearch(inputId,acId,current,onPick){
+  const inp=$(inputId),ac=$(acId);let items=[],hi=0;
+  const close=()=>{ac.hidden=true;inp.setAttribute('aria-expanded','false');};
+  const show=()=>{items=searchAirports(inp.value);hi=0;if(!items.length){close();return;}
+    ac.innerHTML=items.map((r,i)=>`<button type="button" tabindex="-1" data-i="${i}" class="${i?'':'on'}"><b>${esc(r[0])}</b>${esc(r[1])} <span>${esc([r[2],r[3]].filter(Boolean).join(', '))}${r[8]?' · '+esc(r[8]):''}</span></button>`).join('');
+    ac.hidden=false;inp.setAttribute('aria-expanded','true');};
+  const choose=r=>{if(!r)return;close();inp.value=r[0];onPick(r[0]);inp.blur();};
+  inp.addEventListener('focus',()=>{loadDB();inp.select();});
+  inp.addEventListener('input',()=>{if(!DB){loadDB().then(ok=>ok&&show());return;}show();});
+  inp.addEventListener('keydown',e=>{
+    if(e.key==='Enter'){e.preventDefault();if(!ac.hidden&&items[hi])choose(items[hi]);else{const a=aptByCode(inp.value);if(a)choose([a.code]);else if(inp.value.trim())toast('No airport found for "'+inp.value.trim().toUpperCase()+'"',true);}return;}
+    if(e.key==='Escape'){close();inp.value=current();inp.blur();return;}
+    if(ac.hidden)return;
+    if(e.key==='ArrowDown'||e.key==='ArrowUp'){e.preventDefault();hi=(hi+(e.key==='ArrowDown'?1:-1)+items.length)%items.length;[...ac.children].forEach((b,i)=>b.classList.toggle('on',i===hi));}});
+  ac.addEventListener('mousedown',e=>e.preventDefault());
+  ac.addEventListener('click',e=>{const b=e.target.closest('button');if(b)choose(items[+b.dataset.i]);});
+  inp.addEventListener('blur',()=>setTimeout(()=>{close();if(document.activeElement!==inp)inp.value=current();},150));
+}
+
+/* ---------- flight setup: airports, runways, approach ---------- */
+// Generic straight-in approaches built on the runway (typical distances, 3° path) — not published procedures.
+const APP_TYPES={
+  ILS:{name:'ILS',faf:5,ifd:10,prec:true,feather:true},
+  LOC:{name:'LOC',faf:5,ifd:10,feather:true,mda:400},
+  RNAV:{name:'RNAV (GPS)',faf:5,ifd:10,prec:true},
+  RNP:{name:'RNAV (RNP)',faf:5,ifd:9,prec:true},
+  VOR:{name:'VOR',faf:6,ifd:11,mda:500},
+  NDB:{name:'NDB',faf:6,ifd:11,mda:550},
+  VIS:{name:'Visual',fin:3}
+};
+const ceil100=v=>Math.ceil(v/100)*100;
+function rebuild(){
+  const s=plan.setup,src=plan.src,up=v=>String(v||'').toUpperCase();
+  const depApt=aptByCode(s.dep),dstApt=aptByCode(s.arr);
+  const srcDep=!!src&&up(src.depId)===up(s.dep),srcDst=!!src&&up(src.dstId)===up(s.arr);
+  const depEnd=findEnd(depApt,s.depRwy),dstEnd=findEnd(dstApt,s.arrRwy);
+  const depPos=depEnd?depEnd.thr:depApt?{lat:depApt.lat,lon:depApt.lon}:srcDep?src.wps[0].pos:null;
+  const dstPos=dstEnd?dstEnd.land:dstApt?{lat:dstApt.lat,lon:dstApt.lon}:srcDst?src.wps[src.wps.length-1].pos:null;
+  if(!depPos)throw new Error('Departure airport '+s.dep+" isn't in the airport list.");
+  if(!dstPos)throw new Error('Arrival airport '+s.arr+" isn't in the airport list.");
+  let mid=src&&!plan.direct?src.wps.slice(1,-1):[];
+  if(!srcDep)mid=mid.filter(p=>!p.dep);
+  if(!srcDst)mid=mid.filter(p=>!p.arr&&!p.app);
+  const fileApp=s.app==='FILE'&&srcDst&&!plan.direct;
+  if(!fileApp)mid=mid.filter(p=>!p.app);
+  const start={ident:up(s.dep),type:'Airport',airway:'',dep:depEnd?'RWY '+depEnd.id:'',arr:'',app:'',pos:depPos};
+  const end={ident:up(s.arr),type:'Airport',airway:'',dep:'',arr:'',app:'',pos:dstPos};
+  let fixes=[];plan.appInfo=null;
+  const T=APP_TYPES[s.app];
+  if(T&&dstEnd){
+    const back=(dstEnd.course+180)%360,el=dstEnd.elev,lab=T.name+' '+dstEnd.id;
+    if(T.fin){const gate=ceil100(el+T.fin*318.4);
+      fixes=[{ident:'FIN'+dstEnd.id,type:'User',airway:'',dep:'',arr:'',app:lab,pos:gcDest(dstEnd.land,back,T.fin)}];
+      plan.appInfo={T,lab,end:dstEnd,fafIdx:mid.length+1,fafAlt:gate,dist:T.fin};}
+    else{const fafAlt=ceil100(el+T.faf*318.4),ifAlt=Math.max(fafAlt+1000,ceil100(el+T.ifd*318.4));
+      fixes=[{ident:'IF'+dstEnd.id,type:'Intersection',airway:'',dep:'',arr:'',app:lab,pos:gcDest(dstEnd.land,back,T.ifd)},
+             {ident:'FF'+dstEnd.id,type:'Intersection',airway:'',dep:'',arr:'',app:lab,pos:gcDest(dstEnd.land,back,T.faf)}];
+      plan.appInfo={T,lab,end:dstEnd,fafIdx:mid.length+2,fafAlt,ifAlt,dist:T.faf,mins:el+(T.prec?200:T.mda)};}
+    end.app=lab;
+  }else if(dstEnd)end.app='RWY '+dstEnd.id;
+  plan.wps=[start,...mid,...fixes,end];
+  plan.depEnd=depEnd;plan.dstEnd=dstEnd;plan.depId=up(s.dep);plan.dstId=up(s.arr);
+  plan.depName=depApt?depApt.name:(srcDep?src.depName:'');plan.dstName=dstApt?dstApt.name:(srcDst?src.dstName:'');
+  plan.depElev=depEnd?depEnd.elev:depApt?depApt.elev:srcDep?src.depElev:0;
+  plan.dstElev=dstEnd?dstEnd.elev:dstApt?dstApt.elev:srcDst?src.dstElev:0;
+  plan.depRwy=depEnd?depEnd.id:'';plan.dstRwy=dstEnd?dstEnd.id:'';
+  plan.title=srcDep&&srcDst&&src.title&&!plan.direct?src.title:(up(s.dep)+' to '+up(s.arr));
+}
+function fillRunways(sel,apt,cur,label){
+  const o=[`<option value="">${label}</option>`];
+  if(apt)apt.ends.forEach(e=>o.push(`<option value="${esc(e.id)}">RWY ${esc(e.id)}${e.len?' · '+e.len.toLocaleString()+' ft':''}${e.surf?' · '+esc(e.surf):''}</option>`));
+  else if(cur)o.push(`<option value="${esc(cur)}">RWY ${esc(cur)}</option>`);
+  sel.innerHTML=o.join('');const m=findEnd(apt,cur);sel.value=m?m.id:(!apt&&cur?cur:'');
+}
+function renderSetup(){
+  const s=plan.setup,depApt=aptByCode(s.dep),dstApt=aptByCode(s.arr);
+  if(document.activeElement!==$('depInput'))$('depInput').value=plan.depId;
+  if(document.activeElement!==$('arrInput'))$('arrInput').value=plan.dstId;
+  $('depName').textContent=plan.depName||'';$('arrName').textContent=plan.dstName||'';
+  fillRunways($('depRwySel'),depApt,s.depRwy,'Departure runway…');
+  fillRunways($('arrRwySel'),dstApt,s.arrRwy,'Arrival runway…');
+  const src=plan.src,fileOk=!!src&&!plan.direct&&src.wps.some(p=>p.app)&&src.dstId.toUpperCase()===plan.dstId;
+  const fileName=fileOk?src.wps.find(p=>p.app).app:'';
+  if(s.app==='FILE'&&!fileOk)s.app='NONE';
+  $('appSel').innerHTML=(fileOk?`<option value="FILE">From flight plan · ${esc(fileName)}</option>`:'')+
+    '<option value="NONE">No approach</option>'+
+    Object.entries(APP_TYPES).map(([k,t])=>`<option value="${k}"${plan.dstEnd?'':' disabled'}>${esc(t.name)}${plan.dstEnd?' '+esc(plan.dstEnd.id):''}</option>`).join('');
+  $('appSel').value=APP_TYPES[s.app]&&!plan.dstEnd?'NONE':s.app;
+  const A=plan.appInfo,info=$('appInfo');
+  if(A){const e=A.end;
+    info.innerHTML=`<b>${esc(A.lab)}</b> · final ${trk3(e.course)}°T · `+(A.T.fin?`${A.dist} nm final at ${fmtFt(A.fafAlt)} ft`:
+      `IF ${A.T.ifd} nm at ${fmtFt(A.ifAlt)} ft · FAF ${A.dist} nm at ${fmtFt(A.fafAlt)} ft · ${A.T.prec?'DA':'MDA'} ${fmtFt(A.mins)} ft`)+
+      ` · TDZ ${fmtFt(e.elev)} ft<br>Generic straight-in approach for planning. Fly the published procedure in the sim.`;}
+  else if(s.app==='FILE'&&fileOk)info.innerHTML=`<b>${esc(fileName)}</b> · approach legs from your flight plan`;
+  else info.textContent=plan.dstEnd?'':'Pick an arrival runway to choose an approach.';
+  $('resetPln').hidden=!plan.src;
+}
+function applySetup(fit){
+  try{rebuild();}catch(err){toast(err.message,true);return false;}
+  ensureOsmRunways(aptByCode(plan.setup.dep));ensureOsmRunways(aptByCode(plan.setup.arr));
+  selected=-1;terrain=null;$('sTer').textContent='—';$('sClr').textContent='—';$('sClr').className='v';
+  render();drawRoute(fit);refreshPlannedRunways();loadTerrain();persist();return true;
+}
+function touched(){if(plan&&plan.sample){plan.sample=false;plan._key='new:'+Date.now();$('sampleBadge').hidden=true;}}
+wireSearch('depInput','depAc',()=>plan?plan.depId:'',code=>{if(!plan)return;const s=plan.setup;touched();
+  if(code.toUpperCase()===String(s.dep).toUpperCase())return;s.dep=code;s.depRwy='';applySetup(true);});
+wireSearch('arrInput','arrAc',()=>plan?plan.dstId:'',code=>{if(!plan)return;const s=plan.setup;touched();
+  if(code.toUpperCase()===String(s.arr).toUpperCase())return;s.arr=code;s.arrRwy='';if(s.app!=='FILE')s.app=s.app;applySetup(true);});
+$('depRwySel').addEventListener('change',e=>{touched();plan.setup.depRwy=e.target.value;applySetup(false);});
+$('arrRwySel').addEventListener('change',e=>{touched();plan.setup.arrRwy=e.target.value;applySetup(false);});
+$('appSel').addEventListener('change',e=>{touched();plan.setup.app=e.target.value;applySetup(false);});
+$('goDirect').addEventListener('click',()=>{if(!plan)return;touched();plan.direct=true;applySetup(false);toast('Route cleared · direct '+plan.depId+' to '+plan.dstId);});
+$('resetPln').addEventListener('click',()=>{if(!plan||!plan.src)return;plan.setup=defaultSetup(plan.src);plan.direct=false;applySetup(true);});
+$('newFlight').addEventListener('click',async()=>{
+  if(!plan)return;
+  if(!(await loadDB())){toast('New flights need the airport database, which loads on the web version.',true);return;}
+  plan.src=null;plan.xml=null;plan.sample=false;plan.direct=true;plan._key='new:'+Date.now();
+  plan.setup={dep:plan.depId,depRwy:'',arr:plan.dstId,arrRwy:'',app:'NONE'};
+  $('sampleBadge').hidden=true;
+  if(applySetup(true)){$('depInput').focus();toast('New flight: type the departure, then the arrival');}
+});
+
 /* ---------- sample plan (example data, KSEA–KSFO via V23) ---------- */
 function dms(v,pos,neg){const s=v<0?neg:pos;v=Math.abs(v);const d=Math.floor(v),mf=(v-d)*60,m=Math.floor(mf),sec=((mf-m)*60).toFixed(2);return `${s}${d}° ${m}' ${sec}"`;}
 function wp(id,type,lat,lon,alt,extra=''){return `<ATCWaypoint id="${id}"><ATCWaypointType>${type}</ATCWaypointType><WorldPosition>${dms(lat,'N','S')},${dms(lon,'E','W')},+${alt.toFixed(2).padStart(9,'0')}</WorldPosition>${extra}<ICAO><ICAOIdent>${id}</ICAOIdent></ICAO></ATCWaypoint>`;}
@@ -684,7 +925,11 @@ ${wp('RBL','VOR',40.0989,-122.2365,0)}${wp('PYE','VOR',38.0797,-122.8678,0)}${wp
 </FlightPlan.FlightPlan></SimBase.Document>`;
 
 const rec=getRecents();
-if(rec.length) load(rec[0].xml,{save:false}); else {$('gs').value=260;$('burn').value=650;load(SAMPLE,{sample:true});}
+if(rec.length&&rec[0].xml) load(rec[0].xml,{entry:rec[0]});
+else if(rec.length) loadScratch(rec[0]).then(()=>{if(!plan){$('gs').value=260;$('burn').value=650;load(SAMPLE,{sample:true});}});
+else {$('gs').value=260;$('burn').value=650;load(SAMPLE,{sample:true});}
+drawRecents();
+loadDB().then(ok=>{if(ok&&plan)applySetup(false);});
 })();
 </script>
 </body>
