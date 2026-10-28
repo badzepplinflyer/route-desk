@@ -740,7 +740,7 @@ const R={base:L.canvas({pane:'aptBase'}),pave:L.canvas({pane:'aptPave'}),rwy:L.c
 const aptLayer=L.layerGroup(), aptLabels=L.layerGroup();
 const osmSeen=new Set(), fetchedBoxes=[], paveLines=[], runways=[], taxiways=[], gates=[];
 let aptBusy=false, aptPending=false, aptAttrib=false;
-const OVERPASS=['https://overpass-api.de/api/interpreter','https://overpass.kumi.systems/api/interpreter','https://maps.mail.ru/osm/tools/overpass/api/interpreter'];
+const OVERPASS=['https://overpass-api.de/api/interpreter','https://overpass.private.coffee/api/interpreter','https://overpass.kumi.systems/api/interpreter','https://maps.mail.ru/osm/tools/overpass/api/interpreter'];
 const C_APT={apron:'#8f969d',bldg:'#56626e',pave:'#6a7077',rwy:'#2f3439',cl:'#f2c230',hold:'#e02424',plan:'#c0177a'};
 
 function pxPerMeter(lat,z){return 256*Math.pow(2,z)/(40075016.686*Math.cos(lat*D2R));}
@@ -748,13 +748,34 @@ function mDist(a,b){return gcDist({lat:a[0],lon:a[1]},{lat:b[0],lon:b[1]})*1852;
 function parseWidth(t,def){const v=parseFloat(t);if(!isFinite(v)||v<=0)return def;return /ft|'/.test(t)?v*0.3048:v;}
 const normRwy=s=>String(s||'').toUpperCase().replace(/^0+/,'').replace(/[^0-9LRCW]/g,'');
 
+// ask the OSM servers in turn (staggered), use the first good answer, give up on a server after 25 s
+function overpassQuery(q,timeout=25000){
+  const ctrls=[],timers=[];
+  const tries=OVERPASS.map((u,i)=>new Promise((res,rej)=>{timers.push(setTimeout(async()=>{const c=new AbortController();ctrls.push(c);const tm=setTimeout(()=>c.abort(),timeout);
+    try{const r=await fetch(u,{method:'POST',body:'data='+encodeURIComponent(q),headers:{'Content-Type':'application/x-www-form-urlencoded'},signal:c.signal});
+      if(!r.ok)throw new Error('http '+r.status);const j=await r.json();if(j.remark&&/error|timeout|runtime/i.test(j.remark)&&!(j.elements||[]).length)throw new Error(j.remark);res(j);}
+    catch(e){rej(e);}finally{clearTimeout(tm);}},i*2500));}));
+  return Promise.any(tries).then(d=>{timers.forEach(clearTimeout);ctrls.forEach(c=>c.abort());return d;},()=>{throw new Error('offline');});}
 async function overpass(b){
   const bb=`${b.s},${b.w},${b.n},${b.e}`;
-  const q=`[out:json][timeout:30];(way["aeroway"](${bb});way["area:aeroway"](${bb});node["aeroway"~"^(gate|parking_position|holding_position)$"](${bb}););out geom;`;
-  for(const url of OVERPASS){try{const r=await fetch(url,{method:'POST',body:'data='+encodeURIComponent(q),headers:{'Content-Type':'application/x-www-form-urlencoded'}});
-    if(r.ok)return await r.json();}catch(e){}}
-  throw new Error('offline');
+  return overpassQuery(`[out:json][timeout:30];(way["aeroway"](${bb});way["area:aeroway"](${bb});node["aeroway"~"^(gate|parking_position|holding_position)$"](${bb}););out geom;`);
 }
+// runways drawn right away from the app's own data, replaced once OpenStreetMap answers
+const localRw=new Map();
+function drawLocalRunways(apt){
+  if(!apt||localRw.has(apt.code))return;const used=new Set(),layers=[],entries=[];
+  apt.ends.forEach(e=>{if(used.has(e))return;const o=apt.ends.find(x=>x!==e&&!used.has(x)&&gcDist(x.thr,e.opp)<0.3);used.add(e);if(o)used.add(o);
+    const g=[[e.thr.lat,e.thr.lon],[e.opp.lat,e.opp.lon]],w=(e.wid||150)*0.3048,ref=o?e.id+'/'+o.id:e.id;
+    const poly=L.polygon(runwayPolygon(g,w),{renderer:R.rwy,color:'#1c2024',weight:1,fillColor:C_APT.rwy,fillOpacity:.97}).addTo(aptLayer);
+    poly.bindTooltip(`RWY ${esc(ref)}${e.len?' · '+e.len.toLocaleString()+' ft':''}${e.surf?' · '+esc(e.surf):''}`,{sticky:true});
+    const cl=L.polyline(g,{renderer:R.line,color:'#fff',weight:1.5,dashArray:'10 8',interactive:false}).addTo(aptLayer);
+    const ent={g,ref,planned:isPlanned(ref,g[0]),poly,local:apt.code};runways.push(ent);layers.push(poly,cl);entries.push(ent);});
+  localRw.set(apt.code,{layers,entries,lat:apt.lat,lon:apt.lon});
+  if(map.hasLayer(aptLayer))labelAirports();}
+function dropLocalRunways(){
+  for(const [code,v] of localRw){if(v.dropped)continue;
+    const osm=runways.some(r=>!r.local&&gcDist({lat:r.g[0][0],lon:r.g[0][1]},{lat:v.lat,lon:v.lon})<3);
+    if(osm){v.layers.forEach(l=>aptLayer.removeLayer(l));for(let i=runways.length-1;i>=0;i--)if(v.entries.includes(runways[i]))runways.splice(i,1);v.dropped=true;}}}
 function runwayPolygon(pts,w){ // centerline [[lat,lon]...] -> polygon of width w metres
   const left=[],right=[];
   for(let i=0;i<pts.length;i++){const a=pts[Math.max(0,i-1)],b=pts[Math.min(pts.length-1,i+1)];
@@ -836,12 +857,12 @@ function labelAirports(){
 function loadBox(box){
   const entry={...box,done:false};
   entry.p=overpass(box).then(data=>{const els=data.elements||[];els.sort((a,b)=>(a.type==='node')-(b.type==='node'));els.forEach(addElement);
-      entry.done=true;entry.count=els.length;if(map.hasLayer(aptLayer)){sizePavement();labelAirports();}return els.length;})
+      entry.done=true;entry.count=els.length;dropLocalRunways();if(map.hasLayer(aptLayer)){sizePavement();labelAirports();}return els.length;})
     .catch(e=>{const i=fetchedBoxes.indexOf(entry);if(i>=0)fetchedBoxes.splice(i,1);throw e;});
   fetchedBoxes.push(entry);return entry;}
 const coverOf=box=>fetchedBoxes.find(f=>f.s<=box.s&&f.w<=box.w&&f.n>=box.n&&f.e>=box.e);
 function prefetchAirport(code){
-  const a=aptByCode(code);if(!a)return;const snap=0.05,dy=0.1,dx=0.1/Math.max(0.3,Math.cos(a.lat*D2R));
+  const a=aptByCode(code);if(!a)return;drawLocalRunways(a);const snap=0.05,dy=0.1,dx=0.1/Math.max(0.3,Math.cos(a.lat*D2R));
   const box={s:Math.floor((a.lat-dy)/snap)*snap,w:Math.floor((a.lon-dx)/snap)*snap,n:Math.ceil((a.lat+dy)/snap)*snap,e:Math.ceil((a.lon+dx)/snap)*snap};
   if(coverOf(box))return;loadBox(box).p.catch(()=>{});}
 async function updateAirports(){
@@ -854,8 +875,8 @@ async function updateAirports(){
   let entry=coverOf(box);
   if(!entry){if((box.n-box.s)*(box.e-box.w)>0.5){hint.textContent='Zoom in a little more to load the layout';hint.className='apthint';return;}entry=loadBox(box);}
   if(!entry.done){hint.textContent='Loading airport layout…';hint.className='apthint busy';}
-  try{const n=await entry.p;sizePavement();labelAirports();hint.textContent=n||entry.count?'Airport layout: OpenStreetMap':'No airport layout mapped here';hint.className='apthint';}
-  catch(e){hint.textContent="Airport layout didn't load. Check your connection and zoom again.";hint.className='apthint';}
+  try{const n=await entry.p;sizePavement();labelAirports();hint.textContent=n||entry.count?'Airport layout: OpenStreetMap':'No taxiway data mapped here';hint.className='apthint';}
+  catch(e){hint.textContent="Taxiways didn't load (map servers busy). Runways are shown; pan or zoom to try again.";hint.className='apthint';}
 }
 let aptT;map.on('moveend zoomend',()=>{clearTimeout(aptT);aptT=setTimeout(updateAirports,250);});
 function showAirport(i){if(!plan)return;const p=plan.wps[i].pos;map.setView([p.lat,p.lon],15);}
@@ -990,8 +1011,7 @@ function aptObj(r){
 function ensureOsmRunways(apt){
   if(!apt||apt.osmTried)return;apt.osmTried=true;
   const q=`[out:json][timeout:20];way["aeroway"="runway"](around:7000,${apt.lat},${apt.lon});out geom;`;
-  (async()=>{for(const url of OVERPASS){try{const r=await fetch(url,{method:'POST',body:'data='+encodeURIComponent(q),headers:{'Content-Type':'application/x-www-form-urlencoded'}});
-      if(r.ok)return r.json();}catch(e){}}return null;})().then(d=>{
+  overpassQuery(q).catch(()=>null).then(d=>{
     if(!d)return;const ends=[];
     (d.elements||[]).forEach(el=>{const t=el.tags||{},g=(el.geometry||[]).filter(Boolean);if(!t.ref||g.length<2||t.area==='yes')return;
       const A={lat:g[0].lat,lon:g[0].lon},B={lat:g[g.length-1].lat,lon:g[g.length-1].lon},brg=gcBrg(A,B);
