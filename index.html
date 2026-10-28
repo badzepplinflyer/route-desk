@@ -134,6 +134,27 @@ input[type=file]{position:absolute;width:1px;height:1px;opacity:0;pointer-events
 .strip .lg{flex:none;display:flex;align-items:center;font:italic 400 10.5px var(--f-mono);color:var(--muted);padding:0 4px;white-space:nowrap}
 td.cons{color:var(--accent)}
 @media (max-width:560px){.procs{grid-template-columns:minmax(0,1fr)}}
+.mapwrap{position:relative}
+.previewing .leaflet-overlay-pane,.previewing .leaflet-marker-pane{opacity:.28;transition:opacity .2s}
+.pvbox{position:absolute;top:10px;left:54px;z-index:800;width:min(260px,calc(100% - 66px));max-height:calc(100% - 20px);display:flex;flex-direction:column;background:var(--panel);border:1px solid var(--line);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.22);overflow:hidden}
+.pvh{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid var(--line);font:600 12px var(--f-body)}
+.pvh .btn{padding:4px 10px;font-size:12px}
+.pvlist{overflow-y:auto;min-height:0}
+.pvr{display:flex;align-items:center;gap:8px;width:100%;border:0;border-bottom:1px solid var(--line);background:transparent;color:var(--ink);padding:7px 10px;font:600 12.5px var(--f-mono);cursor:pointer;text-align:left}
+.pvr i{width:16px;height:4px;border-radius:2px;flex:none}
+.pvr span{margin-left:auto;font:400 10.5px var(--f-body);color:var(--muted);white-space:nowrap}
+.pvr:hover,.pvr.hl{background:var(--route-soft)}
+.pvr.on{box-shadow:inset 3px 0 0 var(--route)}
+.pvr:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.pvhint{padding:6px 10px;font:400 10.5px var(--f-body);color:var(--muted);border-top:1px solid var(--line)}
+.pvl{position:absolute;transform:translate(-50%,-135%);background:var(--c);color:#fff;font:700 10.5px var(--f-mono);padding:1px 5px;border-radius:3px;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,.35);pointer-events:none}
+.pvl.dim{opacity:.35}
+.pvf{position:absolute;transform:translate(7px,-50%);font:600 10.5px var(--f-mono);color:#16212a;background:rgba(255,255,255,.92);padding:0 4px;border-radius:2px;white-space:nowrap;pointer-events:none}
+.pvf small{color:#0a6a86;margin-left:4px;font-weight:600}
+.pv{align-self:flex-start;font:600 10px var(--f-body);letter-spacing:.08em;text-transform:uppercase;border:1px solid var(--line);background:var(--bg);color:var(--accent);padding:4px 8px;border-radius:4px;cursor:pointer}
+.pv:hover{border-color:var(--accent)}
+.pv:disabled{opacity:.45;cursor:default}
+.pv:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .appinfo{padding:8px 12px;border-bottom:1px solid var(--line);font:400 11.5px var(--f-mono);color:var(--muted);line-height:1.5}
 .appinfo b{color:var(--route);font-weight:600}
 .appinfo:empty{display:none}
@@ -211,7 +232,7 @@ tfoot td{font-weight:500;border-bottom:0;color:var(--muted)}
             <span class="apthint" id="aptHint">Zoom in on an airport for its layout</span>
           </div>
         </div>
-        <div id="map"></div>
+        <div class="mapwrap"><div id="map"></div></div>
       </section>
       <section class="panel">
         <div class="ph"><h2>Route</h2><span class="hint" id="stripHint"></span></div>
@@ -249,14 +270,17 @@ tfoot td{font-weight:500;border-bottom:0;color:var(--muted)}
             <label class="lab" for="sidSel">SID</label>
             <select id="sidSel"></select>
             <select id="sidTrSel" aria-label="SID transition"></select>
+            <button type="button" class="pv" id="pvSid">Preview SIDs on map</button>
           </div>
           <div class="pcol">
             <label class="lab" for="starSel">STAR</label>
             <select id="starSel"></select>
             <select id="starTrSel" aria-label="STAR transition"></select>
+            <button type="button" class="pv" id="pvStar">Preview STARs on map</button>
             <label class="lab" for="appSel">Approach</label>
             <select id="appSel"></select>
             <select id="appTrSel" aria-label="Approach transition"></select>
+            <button type="button" class="pv" id="pvApp">Preview approaches on map</button>
           </div>
         </div>
         <div class="appinfo" id="appInfo"></div>
@@ -1031,6 +1055,7 @@ function renderSetup(){
   else if(s.app==='FILE'&&fileOk)info.innerHTML=`<b>${esc(src.wps.find(p=>p.app).app)}</b> · approach legs from your flight plan`;
   else info.textContent='';
   $('resetPln').hidden=!plan.src;
+  $('pvSid').disabled=!dp||!dp.sid.length;$('pvStar').disabled=!ap||!ap.star.length;$('pvApp').disabled=!ap||!ap.app.length;
   renderStrip();
 }
 function renderStrip(){
@@ -1048,13 +1073,13 @@ function applySetup(fit){
   try{rebuild();}catch(err){toast(err.message,true);return false;}
   ensureOsmRunways(aptByCode(plan.setup.dep));ensureOsmRunways(aptByCode(plan.setup.arr));ensureProcs(plan.setup.dep);ensureProcs(plan.setup.arr);
   selected=-1;terrain=null;$('sTer').textContent='—';$('sClr').textContent='—';$('sClr').className='v';
-  render();drawRoute(fit);refreshPlannedRunways();loadTerrain();persist();return true;
+  render();drawRoute(fit);refreshPlannedRunways();loadTerrain();persist();if(typeof markPreview==='function')markPreview();return true;
 }
 function touched(){if(plan&&plan.sample){plan.sample=false;plan._key='new:'+Date.now();$('sampleBadge').hidden=true;}}
 wireSearch('depInput','depAc',()=>plan?plan.depId:'',code=>{if(!plan)return;const s=plan.setup;touched();
-  if(code.toUpperCase()===String(s.dep).toUpperCase())return;s.dep=code;s.depRwy='';s.sid=undefined;s.sidTr=undefined;applySetup(true);});
+  if(code.toUpperCase()===String(s.dep).toUpperCase())return;closePreview();s.dep=code;s.depRwy='';s.sid=undefined;s.sidTr=undefined;applySetup(true);});
 wireSearch('arrInput','arrAc',()=>plan?plan.dstId:'',code=>{if(!plan)return;const s=plan.setup;touched();
-  if(code.toUpperCase()===String(s.arr).toUpperCase())return;s.arr=code;s.arrRwy='';s.star=undefined;s.starTr=undefined;s.app='NONE';s.appTr=undefined;applySetup(true);});
+  if(code.toUpperCase()===String(s.arr).toUpperCase())return;closePreview();s.arr=code;s.arrRwy='';s.star=undefined;s.starTr=undefined;s.app='NONE';s.appTr=undefined;applySetup(true);});
 $('depRwySel').addEventListener('change',e=>{touched();const s=plan.setup;s.depRwy=e.target.value;const dp=getProcs(s.dep);
   if(dp&&s.sid){const o=dp.sid.find(x=>x.id===s.sid);if(o&&!sidFits(o,s.depRwy)){s.sid='';s.sidTr='';}}applySetup(false);});
 $('sidSel').addEventListener('change',e=>{touched();plan.setup.sid=e.target.value;plan.setup.sidTr=undefined;applySetup(false);});
@@ -1076,6 +1101,91 @@ $('newFlight').addEventListener('click',async()=>{
   $('sampleBadge').hidden=true;
   if(applySetup(true)){$('depInput').focus();toast('New flight: type the departure, then the arrival');}
 });
+
+
+/* ---------- procedure preview on the map ---------- */
+map.createPane('pvPane').style.zIndex=450;map.createPane('pvLbl').style.zIndex=640;
+const PV_COLORS=['#e6194b','#2a9d3c','#3b5bdb','#f58231','#8e24aa','#0097a7','#d81b60','#8d6e2e','#00796b','#9e9d24','#7b1f1f','#283593'];
+let preview=null;
+function pathPts(legs,pd,start,end){const pts=start?[[start.lat,start.lon]]:[];
+  legs.forEach(g=>{const f=g[0],x=f&&pd.fx[f];if(!x||/^RW\d/.test(f))return;const l=pts[pts.length-1];if(!l||l[0]!==x[0]||l[1]!==x[1])pts.push([x[0],x[1]]);});
+  if(end)pts.push([end.lat,end.lon]);return pts;}
+function previewData(kind){
+  const s=plan.setup;
+  if(kind==='sid'){const pd=getProcs(s.dep);if(!pd)return null;const rw=plan.depRwy;
+    return {pd,title:'SIDs · '+plan.depId+(rw?' RWY '+rw:''),items:pd.sid.filter(p=>sidFits(p,rw)).map(p=>{
+      const rks=Object.keys(p.rw),rk=rw?rks.find(k=>matchRw(k,rw)):null,sets=rk?[p.rw[rk]]:(rks.length?rks.map(k=>p.rw[k]):[[]]),trs=Object.keys(p.tr),br=[];
+      sets.forEach(rl=>{if(trs.length)trs.forEach(t=>br.push({tr:t,legs:[...rl,...p.cm,...p.tr[t]]}));else br.push({tr:'',legs:[...rl,...p.cm]});});
+      return {id:p.id,label:p.id+(p.rnav?' RNAV':''),branches:br,start:plan.depEnd?plan.depEnd.thr:null,ntr:trs.length};})};}
+  const pd=getProcs(s.arr);if(!pd)return null;const rw=plan.dstRwy;
+  if(kind==='star')return {pd,title:'STARs · '+plan.dstId+(rw?' RWY '+rw:''),items:pd.star.map(p=>{
+      const rk=rw?Object.keys(p.rw).find(k=>matchRw(k,rw)):null,rl=rk?p.rw[rk]:[],trs=Object.keys(p.tr);
+      return {id:p.id,label:p.id+(p.rnav?' RNAV':''),ntr:trs.length,branches:trs.length?trs.map(t=>({tr:t,legs:[...p.tr[t],...p.cm,...rl]})):[{tr:'',legs:[...p.cm,...rl]}]};})};
+  const apt=aptByCode(s.arr);
+  return {pd,title:'Approaches · '+plan.dstId+(rw?' RWY '+rw:''),items:pd.app.filter(a=>appFits(a,rw)).map(a=>{const e=findEnd(apt,a.rw),trs=Object.keys(a.tr);
+      return {id:a.id,label:a.name,ntr:trs.length,end:e?e.land:null,branches:[{tr:'',legs:a.fin},...trs.map(t=>({tr:t,legs:[...a.tr[t],...a.fin]}))]};})};
+}
+function currentPick(kind){const s=plan.setup;return kind==='sid'?[s.sid,s.sidTr]:kind==='star'?[s.star,s.starTr]:[String(s.app).startsWith('P:')?s.app.slice(2):'',s.appTr];}
+function openPreview(kind){
+  closePreview();const d=previewData(kind);
+  if(!d||!d.items.length){toast(d?'No procedures to preview for this runway':'Procedures are still loading or not available here',!d);return;}
+  const layer=L.layerGroup().addTo(map),fixLayer=L.layerGroup().addTo(map),bounds=L.latLngBounds([]);
+  const items=d.items.map((it,i)=>({...it,color:PV_COLORS[i%PV_COLORS.length],polys:[],labels:[]}));
+  items.forEach(it=>it.branches.forEach(b=>{const pts=pathPts(b.legs,d.pd,it.start,it.end);if(pts.length<2)return;pts.forEach(p=>bounds.extend(p));
+    const vis=L.polyline(pts,{pane:'pvPane',color:it.color,weight:3,opacity:.9,interactive:false,lineJoin:'round'}).addTo(layer);
+    const hit=L.polyline(pts,{pane:'pvPane',color:'#000',weight:18,opacity:0}).addTo(layer);
+    hit.on('mouseover',()=>highlight(it,b));hit.on('mouseout',()=>highlight());
+    hit.on('click',e=>{L.DomEvent.stop(e);pickPreview(it,b);});
+    hit.bindTooltip(it.label+(b.tr?' · '+b.tr+(kind==='sid'?' exit':kind==='star'?' entry':' (IAF)'):(kind==='app'?' · vectors to final':'')),{sticky:true,direction:'top'});
+    it.polys.push({vis,b});
+    if(b.tr){const at=kind==='sid'?pts[pts.length-1]:pts[0];
+      it.labels.push(L.marker(at,{pane:'pvLbl',interactive:false,keyboard:false,icon:L.divIcon({className:'',iconSize:null,html:`<div class="pvl" style="--c:${it.color}">${esc(b.tr)}</div>`})}).addTo(layer));}}));
+  // floating list
+  const box=document.createElement('div');box.className='pvbox';
+  box.innerHTML=`<div class="pvh"><span>${esc(d.title)}</span><button type="button" class="btn primary" id="pvDone">Done</button></div>
+    <div class="pvlist">${items.map((it,i)=>`<button type="button" class="pvr" data-i="${i}"><i style="background:${it.color}"></i>${esc(it.label)}<span>${it.ntr?it.ntr+(kind==='app'?' IAF':' trans'):''}</span></button>`).join('')}</div>
+    <div class="pvhint">Hover to highlight · click a procedure, or click a line on the map to pick that ${kind==='sid'?'exit':kind==='star'?'entry':'transition'}</div>`;
+  $('map').parentNode.appendChild(box);L.DomEvent.disableClickPropagation(box);L.DomEvent.disableScrollPropagation(box);
+  box.querySelector('#pvDone').onclick=closePreview;
+  box.querySelectorAll('.pvr').forEach(r=>{const it=items[+r.dataset.i];
+    r.addEventListener('mouseenter',()=>highlight(it));r.addEventListener('mouseleave',()=>highlight());
+    r.addEventListener('focus',()=>highlight(it));r.addEventListener('blur',()=>highlight());
+    r.addEventListener('click',()=>pickPreview(it,null));});
+  preview={kind,layer,fixLayer,items,d,box};
+  map.getContainer().classList.add('previewing');
+  if(bounds.isValid())map.fitBounds(bounds,{padding:[30,30],maxZoom:12});
+  $('map').scrollIntoView({block:'nearest',behavior:'smooth'});
+  markPreview();
+}
+function closePreview(){if(!preview)return;map.removeLayer(preview.layer);map.removeLayer(preview.fixLayer);preview.box.remove();map.getContainer().classList.remove('previewing');preview=null;}
+function highlight(it,branch){
+  if(!preview)return;const [curId,curTr]=currentPick(preview.kind),cur=preview.items.find(x=>x.id===curId);
+  const h=it||cur||null;
+  preview.items.forEach(x=>{const on=x===h;
+    x.polys.forEach(({vis,b})=>{const sel=on&&((branch&&b===branch)||(!branch&&x===cur&&curTr&&b.tr===curTr));
+      vis.setStyle({opacity:!h||on?.92:.14,weight:sel?7:on?4.5:3});if(on)vis.bringToFront();});
+    x.labels.forEach(m=>{const el=m.getElement()?.firstChild;el&&el.classList.toggle('dim',!!h&&!on);});});
+  preview.box.querySelectorAll('.pvr').forEach(r=>r.classList.toggle('hl',preview.items[+r.dataset.i]===it));
+  // fixes and restrictions for the highlighted procedure
+  preview.fixLayer.clearLayers();if(!h)return;
+  const seen=new Map(),brs=branch?[branch]:h.branches;
+  brs.forEach(b=>b.legs.forEach(g=>{const f=g[0],x=f&&preview.d.pd.fx[f];if(!x||/^RW\d/.test(f)||seen.has(f))return;seen.set(f,1);
+    L.circleMarker([x[0],x[1]],{pane:'pvLbl',radius:3.5,color:'#fff',weight:1.5,fillColor:h.color,fillOpacity:1,interactive:false}).addTo(preview.fixLayer);
+    const c=consText(g[2],g[3],g[4],g[5]);
+    L.marker([x[0],x[1]],{pane:'pvLbl',interactive:false,keyboard:false,icon:L.divIcon({className:'',iconSize:null,html:`<div class="pvf">${esc(f)}${c?`<small>${esc(c)}</small>`:''}</div>`})}).addTo(preview.fixLayer);}));
+}
+function markPreview(){if(!preview)return;const [curId]=currentPick(preview.kind);
+  preview.box.querySelectorAll('.pvr').forEach(r=>r.classList.toggle('on',preview.items[+r.dataset.i].id===curId));highlight();}
+function pickPreview(it,b){
+  const s=plan.setup,k=preview.kind;touched();
+  if(k==='sid'){s.sid=it.id;s.sidTr=b?b.tr:undefined;}
+  else if(k==='star'){s.star=it.id;s.starTr=b?b.tr:undefined;s.appTr=undefined;}
+  else{const a=preview.d.pd.app.find(x=>x.id===it.id);s.app='P:'+it.id;s.appTr=b?b.tr:undefined;if(a&&a.rw)s.arrRwy=a.rw;}
+  applySetup(false);
+  toast(it.label+(b&&b.tr?' · '+b.tr:'')+' selected');
+}
+$('pvSid').onclick=()=>openPreview('sid');$('pvStar').onclick=()=>openPreview('star');$('pvApp').onclick=()=>openPreview('app');
+addEventListener('keydown',e=>{if(e.key==='Escape'&&preview&&!e.target.matches('input'))closePreview();});
 
 /* ---------- sample plan (example data, KSEA–KSFO via V23) ---------- */
 function dms(v,pos,neg){const s=v<0?neg:pos;v=Math.abs(v);const d=Math.floor(v),mf=(v-d)*60,m=Math.floor(mf),sec=((mf-m)*60).toFixed(2);return `${s}${d}° ${m}' ${sec}"`;}
