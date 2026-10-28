@@ -16,15 +16,20 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Download and build
+      - name: Download and build procedures
         run: python tools/update_cifp.py
+      - name: Download and build preferred routes
+        continue-on-error: true
+        run: |
+          curl -fsSL -A "route-desk (personal flight-sim planner)" -o /tmp/prefroutes_db.csv https://www.fly.faa.gov/rmt/data_file/prefroutes_db.csv
+          python tools/build_prefroutes.py /tmp/prefroutes_db.csv data/prefroutes.json
       - name: Commit if changed
         run: |
-          if [ -n "$(git status --porcelain data/procs data/nav.json)" ]; then
+          if [ -n "$(git status --porcelain data/procs data/nav.json data/prefroutes.json)" ]; then
             git config user.name "route-desk-bot"
             git config user.email "route-desk-bot@users.noreply.github.com"
-            git add -A data/procs data/nav.json
-            git commit -m "Update procedures to CIFP cycle $(python -c "import json;print(json.load(open('data/procs/index.json'))['cycle'])")"
+            git add -A data/procs data/nav.json data/prefroutes.json
+            git commit -m "Update nav data, CIFP cycle $(python -c "import json;print(json.load(open('data/procs/index.json'))['cycle'])")"
             git push
           else
             echo "Procedures already current"
