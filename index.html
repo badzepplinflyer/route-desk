@@ -177,6 +177,12 @@ td.cons{color:var(--accent)}
 .pbar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 16px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-bottom:14px;position:sticky;top:env(safe-area-inset-top,0px);z-index:20}
 .pbar-t{font:600 13px var(--f-mono);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .pbar-b{display:flex;gap:8px;flex-wrap:wrap}
+.tabrow{display:flex;flex-wrap:wrap;align-items:flex-end;gap:10px 12px;background:var(--panel);border:1px solid var(--accent);border-radius:8px;padding:12px;margin:-6px 0 14px}
+.tabrow label{display:flex;flex-direction:column;gap:4px;font:600 10px var(--f-body);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.tabrow input{font:600 18px var(--f-mono);letter-spacing:.12em;text-transform:uppercase;padding:6px 8px;border:1px solid var(--line);border-radius:5px;background:var(--bg);color:var(--ink);width:150px}
+.tabrow input:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.tabrow .hint{flex:1 1 280px;font:400 12px var(--f-body);color:var(--muted);line-height:1.5}
+.tabrow a{color:var(--accent)}
 @media (max-width:1100px){.ofp{position:static}.ofp .doc{max-height:none}}
 .planner .pcols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,560px);gap:14px;align-items:start}
 @media (max-width:1100px){.planner .pcols{grid-template-columns:minmax(0,1fr)}}
@@ -299,11 +305,17 @@ tfoot td{font-weight:500;border-bottom:0;color:var(--muted)}
     <div class="pbar">
       <span class="pbar-t" id="pbarTitle">Plan your flight, then send it to the sim</span>
       <div class="pbar-b">
+        <button type="button" class="btn primary" id="pbTablet">Send to tablet</button>
         <button type="button" class="btn" id="pbSimbrief">Send to SimBrief</button>
         <button type="button" class="btn" id="pbExport">Export .pln for MSFS</button>
         <button type="button" class="btn" id="pbFmc">FMC entry</button>
-        <button type="button" class="btn primary" id="pbMap">Open map</button>
+        <button type="button" class="btn" id="pbMap">Open map</button>
       </div>
+    </div>
+    <div class="tabrow" id="tabRow" hidden>
+      <label for="tabCode">Tablet code<input id="tabCode" maxlength="9" placeholder="ABCD-EFGH" autocomplete="off" spellcheck="false"></label>
+      <button type="button" class="btn primary" id="tabSend">Save and send</button>
+      <span class="hint">Open <b>Route Desk</b> on the in-game tablet to see your code. Need the tablet app? <a href="downloads/routedesk-efb.zip">Download it</a>, unzip it into your MSFS 2024 Community folder, and restart the sim.</span>
     </div>
     <div class="pcols">
       <div class="pform">
@@ -380,7 +392,8 @@ tfoot td{font-weight:500;border-bottom:0;color:var(--muted)}
         <div class="ph"><h2>Briefing</h2><span class="hint" id="ofpHint"></span></div>
         <div class="doc" id="ofp"></div>
         <div class="ofpbar">
-          <button type="button" class="btn primary" id="toMap">Open map</button>
+          <button type="button" class="btn" id="toMap">Open map</button>
+          <button type="button" class="btn primary" id="toTablet">Send to tablet</button>
           <button type="button" class="btn" id="toSimbrief">Send to SimBrief</button>
           <button type="button" class="btn" id="exportPln">Export .pln for MSFS</button>
         </div>
@@ -1880,6 +1893,56 @@ $('exportPln').onclick=()=>plan&&exportPln();
 $('pbSimbrief').onclick=()=>$('toSimbrief').click();$('pbExport').onclick=()=>$('exportPln').click();$('pbMap').onclick=()=>showView('map');
 $('pbFmc').onclick=()=>{const h=[...$('ofp').querySelectorAll('h4')].find(x=>/FMC entry/.test(x.textContent));if(h)h.scrollIntoView({behavior:'smooth',block:'start'});};
 
+
+/* ---------- send the flight to the in-game tablet (Route Desk EFB app) ---------- */
+const TAB_KEY='routedesk.tabletCode';
+function getTabCode(){try{return localStorage.getItem(TAB_KEY)||'';}catch(e){return '';}}
+function setTabCode(c){try{localStorage.setItem(TAB_KEY,c);}catch(e){}}
+const MSFS_APP={'ILS':'ILS','LOC':'LOC','LOC BC':'BLOC','RNAV (GPS)':'RNAV','RNAV (RNP)':'RNAV','VOR':'VOR','VOR/DME':'VORDME','NDB':'NDB','NDB/DME':'NDBDME','LDA':'LDA','SDF':'SDF','GPS':'GPS'};
+async function tabletPayload(){
+  try{await loadNav();}catch(e){}
+  const s=plan.setup,b=plan.brief,o=ofpCalc(),w=plan.wps,TY={APT:'A',VOR:'V',NDB:'N',FIX:'W',USR:'U'};
+  const leg=(p,via)=>{let t=TY[shortType(p.type)]||'W',reg=p.region||'',ap=p.icaoApt||'';
+    if(t!=='A'&&t!=='U'&&!reg&&NAV){const f=nearestFix(p.ident,p.pos);if(f&&gcDist(f,p.pos)<5){reg=f.region;t=f.kind;}}
+    if(t!=='A'&&!reg)t='U'; // unknown fix: fly to its coordinates
+    const l=[p.ident,t,t==='A'?'':reg,ap,via||''];if(t==='U')l.push(+p.pos.lat.toFixed(5),+p.pos.lon.toFixed(5));return l;};
+  const enr=w.filter(p=>p.seg==='ENR'),runs=[];
+  enr.forEach(p=>{if(p.airway&&runs.length&&runs[runs.length-1].via===p.airway){runs[runs.length-1].p=p;return;}runs.push({via:p.airway||'',p});});
+  if(runs.length&&runs[0].via){const prev=w[w.indexOf(enr[0])-1];if(prev&&shortType(prev.type)!=='APT')runs.unshift({via:'',p:prev});}
+  // let the last airway run continue to where the STAR/approach begins when that point is on the same airway
+  if(runs.length&&runs[runs.length-1].via&&NAV&&enr.length){const lr=runs[runs.length-1],nx=w[w.indexOf(enr[enr.length-1])+1];
+    if(nx&&shortType(nx.type)!=='APT'&&nx.ident!==lr.p.ident){try{const mids=airwayBetween(lr.via,{ident:lr.p.ident},nx.ident);if(mids&&mids.length)lr.p=nx;}catch(e){}}}
+  if(runs.length>0&&!runs[0].via&&s.sidTr&&runs[0].p.ident===s.sidTr&&!(runs[1]&&runs[1].via))runs.shift();
+  if(runs.length>0&&!runs[runs.length-1].via&&s.starTr&&runs[runs.length-1].p.ident===s.starTr)runs.pop();
+  let app=null;const ao=plan.appObj;
+  if(ao){const t=MSFS_APP[ao.t]||MSFS_APP[(ao.name.match(/^[A-Z]+(?: \([A-Z]+\))?(?: BC)?/)||[''])[0]];
+    if(t){const m=String(ao.rw||'').match(/^0?(\d{1,2})([LRC]?)$/),suf=ao.rw?((ao.name.match(/ ([A-Z]) \d{1,2}[LRC]?$/)||[])[1]||''):((ao.name.match(/-([A-Z])$/)||[])[1]||'');
+      app=[t,m?('0'+m[1]).slice(-2):'',m?m[2]:'',suf];}}
+  const cs=(b.call||((b.airline||'')+(b.num||''))||b.reg||'').toUpperCase();
+  const p={v:1,sent:Date.now(),cs,ac:b.ac,acn:(ACFT[b.ac]||ACFT.CUST)[0],dep:plan.depId,arr:plan.dstId,dr:plan.depRwy||'',ar:plan.dstRwy||'',
+    sid:plan.sidObj?plan.sidObj.id:'',sidT:plan.sidObj?(s.sidTr||''):'',star:plan.starObj?plan.starObj.id:'',starT:plan.starObj?(s.starTr||''):'',
+    app,appT:ao?(s.appTr||''):'',appN:ao?ao.name:(plan.appInfo?plan.appInfo.lab:''),crz:Math.round(+b.crz||0),vfr:(+b.crz||0)<18000&&!w.some(x=>x.airway)&&!plan.sidObj&&!plan.starObj&&!ao,
+    enr:runs.map(r=>leg(r.p,r.via)),rs:sbRoute()||'DCT',dist:Math.round(plan.total),ete:Math.round(o.ete*60),fuel:Math.round(o.block),res:Math.round(o.res),
+    zfw:Math.round(o.zfw),tow:Math.round(o.tow),altn:b.altn||''};
+  let j=JSON.stringify(p);if(j.length>3900){delete p.rs;j=JSON.stringify(p);}
+  if(j.length>3900)throw new Error('This route is too long to send to the tablet in one go.');
+  return j;}
+async function sendToTablet(){
+  if(!plan)return;let code=getTabCode();
+  if(!code){$('tabRow').hidden=false;$('tabCode').focus();return;}
+  const btns=[$('pbTablet'),$('toTablet')];btns.forEach(b=>b.disabled=true);
+  try{const body=await tabletPayload();
+    const r=await fetch('https://ntfy.sh/routedesk-'+code,{method:'POST',body});
+    if(!r.ok)throw new Error('the relay answered '+r.status);
+    toast(`Sent ${plan.depId}–${plan.dstId} to tablet ${code.slice(0,4)}-${code.slice(4)}. Open Route Desk on the tablet.`,false,{label:'Change code',fn:()=>{$('tabRow').hidden=false;$('tabCode').value='';$('tabCode').focus();},ms:6000});}
+  catch(e){toast("Couldn't send to the tablet: "+(e.message||e),true);}
+  finally{btns.forEach(b=>b.disabled=false);}}
+$('tabSend').onclick=()=>{const c=$('tabCode').value.toUpperCase().replace(/[^A-Z0-9]/g,'');
+  if(c.length!==8){toast('The tablet code has 8 letters and numbers, like ABCD-EFGH.',true);return;}
+  setTabCode(c);$('tabRow').hidden=true;sendToTablet();};
+$('tabCode').addEventListener('keydown',e=>{if(e.key==='Enter')$('tabSend').click();});
+$('pbTablet').onclick=sendToTablet;$('toTablet').onclick=sendToTablet;
+
 /* ---------- views ---------- */
 let pendingFit=null;
 function showView(v){const m=v==='map';$('planView').hidden=m;$('mapView').hidden=!m;
@@ -1891,7 +1954,7 @@ addEventListener('hashchange',()=>showView(location.hash==='#map'?'map':'plan'))
 
 
 /* ---------- tell the person when a newer version is published ---------- */
-const APP_VERSION='2026-10-28.6';
+const APP_VERSION='2026-10-28.7';
 async function checkForUpdate(){try{const t=await (await fetch(location.pathname+'?v='+Date.now(),{cache:'no-store'})).text();
   const m=t.match(/APP_VERSION='([^']+)'/);if(m&&m[1]!==APP_VERSION)toast('A newer version of Route Desk is available',false,{label:'Reload',fn:()=>location.reload(),ms:60000});}catch(e){}}
 setTimeout(checkForUpdate,8000);setInterval(checkForUpdate,10*60000);

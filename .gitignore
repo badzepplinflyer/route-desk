@@ -1,2 +1,6 @@
 __pycache__/
 *.tmp
+efb/dist/
+efb/Packages/
+efb/PackagesMetadata/
+efb/_PackageInt/
