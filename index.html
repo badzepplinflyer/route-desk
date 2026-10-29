@@ -181,7 +181,10 @@ td.cons{color:var(--accent)}
 .tabrow label{display:flex;flex-direction:column;gap:4px;font:600 10px var(--f-body);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
 .tabrow input{font:600 18px var(--f-mono);letter-spacing:.12em;text-transform:uppercase;padding:6px 8px;border:1px solid var(--line);border-radius:5px;background:var(--bg);color:var(--ink);width:150px}
 .tabrow input:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
-.tabrow .hint{flex:1 1 280px;font:400 12px var(--f-body);color:var(--muted);line-height:1.5}
+.tabrow .tabsteps{flex:1 1 100%;font:400 12.5px/1.55 var(--f-body);color:var(--muted)}
+.tabrow .tabsteps b{color:var(--ink)}
+.tabrow .tabsteps ol{margin:6px 0 0;padding-left:20px}
+.tabrow #tabToken{width:260px;font:500 13px var(--f-mono);letter-spacing:0;text-transform:none}
 .tabrow a{color:var(--accent)}
 @media (max-width:1100px){.ofp{position:static}.ofp .doc{max-height:none}}
 .planner .pcols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,560px);gap:14px;align-items:start}
@@ -313,9 +316,17 @@ tfoot td{font-weight:500;border-bottom:0;color:var(--muted)}
       </div>
     </div>
     <div class="tabrow" id="tabRow" hidden>
+      <div class="tabsteps">
+        <b>Connect the in-game tablet (one time)</b>
+        <ol>
+          <li><a href="downloads/routedesk-efb.zip">Download the tablet app</a>, unzip it into your MSFS 2024 <b>Community</b> folder and restart the sim. Open <b>Route Desk</b> on the tablet to see its code.</li>
+          <li>Flights travel through your <b>route-desk</b> GitHub repository. <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">Create a fine-grained token</a>: Repository access <b>Only select repositories → route-desk</b>, Permissions <b>Contents → Read and write</b>. Paste it below. It stays in this browser only.</li>
+        </ol>
+      </div>
       <label for="tabCode">Tablet code<input id="tabCode" maxlength="9" placeholder="ABCD-EFGH" autocomplete="off" spellcheck="false"></label>
+      <label for="tabToken">GitHub token<input id="tabToken" type="password" placeholder="github_pat_…" autocomplete="off" spellcheck="false"></label>
       <button type="button" class="btn primary" id="tabSend">Save and send</button>
-      <span class="hint">Open <b>Route Desk</b> on the in-game tablet to see your code. Need the tablet app? <a href="downloads/routedesk-efb.zip">Download it</a>, unzip it into your MSFS 2024 Community folder, and restart the sim.</span>
+      <button type="button" class="btn" id="tabCancel">Cancel</button>
     </div>
     <div class="pcols">
       <div class="pform">
@@ -1927,20 +1938,39 @@ async function tabletPayload(){
   let j=JSON.stringify(p);if(j.length>3900){delete p.rs;j=JSON.stringify(p);}
   if(j.length>3900)throw new Error('This route is too long to send to the tablet in one go.');
   return j;}
+const TOK_KEY='routedesk.ghToken';
+function getTok(){try{return localStorage.getItem(TOK_KEY)||'';}catch(e){return '';}}
+function setTok(t){try{localStorage.setItem(TOK_KEY,t);}catch(e){}}
+function mailRepo(){const h=location.hostname,seg=location.pathname.split('/').filter(Boolean)[0];
+  return /\.github\.io$/.test(h)&&seg?h.split('.')[0]+'/'+seg:'badzepplinflyer/route-desk';}
+function b64utf8(t){return btoa(unescape(encodeURIComponent(t)));}
+function openTabletSetup(){const c=getTabCode();$('tabRow').hidden=false;$('tabCode').value=c?c.slice(0,4)+'-'+c.slice(4):'';$('tabToken').value=getTok();
+  (c?$('tabToken'):$('tabCode')).focus();$('tabRow').scrollIntoView({block:'nearest'});}
 async function sendToTablet(){
-  if(!plan)return;let code=getTabCode();
-  if(!code){$('tabRow').hidden=false;$('tabCode').focus();return;}
-  const btns=[$('pbTablet'),$('toTablet')];btns.forEach(b=>b.disabled=true);
-  try{const body=await tabletPayload();
-    const r=await fetch('https://ntfy.sh/routedesk-'+code,{method:'POST',body});
-    if(!r.ok)throw new Error('the relay answered '+r.status);
-    toast(`Sent ${plan.depId}–${plan.dstId} to tablet ${code.slice(0,4)}-${code.slice(4)}. Open Route Desk on the tablet.`,false,{label:'Change code',fn:()=>{$('tabRow').hidden=false;$('tabCode').value='';$('tabCode').focus();},ms:6000});}
+  if(!plan)return;const code=getTabCode(),tok=getTok();
+  if(!code||!tok){openTabletSetup();return;}
+  const btns=[$('pbTablet'),$('toTablet'),$('tabSend')];btns.forEach(b=>b.disabled=true);
+  try{const body=await tabletPayload(),repo=mailRepo(),path='tablet/'+code+'.json';
+    const H={'Authorization':'Bearer '+tok,'Accept':'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'};
+    const cur=await fetch(`https://api.github.com/repos/${repo}/contents/${path}?ref=tablet&t=${Date.now()}`,{headers:H,cache:'no-store'});
+    if(cur.status===401)throw new Error('GitHub did not accept the token. Create a new one and paste it again.');
+    let sha;if(cur.ok)sha=(await cur.json()).sha;
+    const put=await fetch(`https://api.github.com/repos/${repo}/contents/${path}`,{method:'PUT',headers:H,
+      body:JSON.stringify({message:`Tablet: ${plan.depId}-${plan.dstId}`,content:b64utf8(body),branch:'tablet',...(sha?{sha}:{})})});
+    if(put.status===401)throw new Error('GitHub did not accept the token. Create a new one and paste it again.');
+    if(put.status===403||put.status===404)throw new Error(`the token can't write to ${repo}. Give it Contents: Read and write on that repository.`);
+    if(!put.ok)throw new Error('GitHub answered '+put.status);
+    $('tabRow').hidden=true;
+    toast(`Sent ${plan.depId}–${plan.dstId} to tablet ${code.slice(0,4)}-${code.slice(4)}. Open Route Desk on the tablet (or tap Check now).`,false,{label:'Tablet settings',fn:openTabletSetup,ms:7000});}
   catch(e){toast("Couldn't send to the tablet: "+(e.message||e),true);}
   finally{btns.forEach(b=>b.disabled=false);}}
-$('tabSend').onclick=()=>{const c=$('tabCode').value.toUpperCase().replace(/[^A-Z0-9]/g,'');
-  if(c.length!==8){toast('The tablet code has 8 letters and numbers, like ABCD-EFGH.',true);return;}
-  setTabCode(c);$('tabRow').hidden=true;sendToTablet();};
-$('tabCode').addEventListener('keydown',e=>{if(e.key==='Enter')$('tabSend').click();});
+$('tabSend').onclick=()=>{const c=$('tabCode').value.toUpperCase().replace(/[^A-Z0-9]/g,''),t=$('tabToken').value.trim();
+  if(c.length!==8){toast('The tablet code has 8 letters and numbers, like ABCD-EFGH.',true);$('tabCode').focus();return;}
+  if(!/^(github_pat_|ghp_)/.test(t)){toast('Paste the GitHub token (it starts with github_pat_).',true);$('tabToken').focus();return;}
+  setTabCode(c);setTok(t);sendToTablet();};
+$('tabCancel').onclick=()=>{$('tabRow').hidden=true;};
+$('tabCode').addEventListener('keydown',e=>{if(e.key==='Enter')$('tabToken').focus();});
+$('tabToken').addEventListener('keydown',e=>{if(e.key==='Enter')$('tabSend').click();});
 $('pbTablet').onclick=sendToTablet;$('toTablet').onclick=sendToTablet;
 
 /* ---------- views ---------- */
@@ -1954,7 +1984,7 @@ addEventListener('hashchange',()=>showView(location.hash==='#map'?'map':'plan'))
 
 
 /* ---------- tell the person when a newer version is published ---------- */
-const APP_VERSION='2026-10-28.7';
+const APP_VERSION='2026-10-28.8';
 async function checkForUpdate(){try{const t=await (await fetch(location.pathname+'?v='+Date.now(),{cache:'no-store'})).text();
   const m=t.match(/APP_VERSION='([^']+)'/);if(m&&m[1]!==APP_VERSION)toast('A newer version of Route Desk is available',false,{label:'Reload',fn:()=>location.reload(),ms:60000});}catch(e){}}
 setTimeout(checkForUpdate,8000);setInterval(checkForUpdate,10*60000);

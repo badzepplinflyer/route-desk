@@ -10,8 +10,9 @@
     window.msfssdk   @microsoft/msfs-sdk (FSComponent, DisplayComponent, Subject,
                      FlightPlanRouteManager, FlightPlanRouteUtils, ICAO)
 
-  Flights travel through the public ntfy.sh relay on a private topic named after the
-  tablet code shown in the app. Messages expire there after 12 hours.
+  Flights travel through a mailbox in the Route Desk GitHub repository: the website writes
+  tablet/<tablet code>.json on the "tablet" branch, and this app reads it (GitHub API when the
+  app opens or on "Check now", the raw file server in the background).
 
   Structure follows the MIT-licensed msfs-efb-iframe sample by Rafael Coelho
   (https://github.com/RCCSilva/msfs-efb-iframe).
@@ -23,9 +24,10 @@
   var INTERNAL_NAME = 'RouteDesk';            // must match folder + file name
   var VERSION = '1.0.0';
   var EFB_API_VERSION = '1.0.3';
-  var RELAY = 'https://ntfy.sh/';
-  var TOPIC_PREFIX = 'routedesk-';
-  var POLL_MS = 5000;
+  var REPO = 'badzepplinflyer/route-desk';     // owner/repo that hosts the mailbox
+  var BRANCH = 'tablet';
+  var RAW_POLL_MS = 15000;                      // raw.githubusercontent.com: no hourly limit, may lag up to 5 min
+  var API_POLL_MS = 120000;                     // api.github.com: 60 unauthenticated requests per hour
   var CODE_KEY = 'ROUTEDESK_TABLET_CODE';
   var BASE_URL = 'coui://html_ui/efb_ui/efb_apps/' + INTERNAL_NAME;
   var STYLE_ID = 'routedesk-efb-style';
@@ -146,9 +148,11 @@
         this.rootRef = sdk.FSComponent.createRef();
         this.code = getCode();
         this.flight = null;
-        this.lastId = '';
+        this.lastKey = '';
         this.lastCheck = 0;
-        this.pollTimer = null;
+        this.rawTimer = null;
+        this.apiTimer = null;
+        this.rateLimited = 0;
         this.busy = false;
         this.destroyed = false;
         this.managerPromise = null;
@@ -164,40 +168,67 @@
       startPolling() {
         var self = this;
         this.stopPolling();
-        this.poll();
-        this.pollTimer = window.setInterval(function () { self.poll(); }, POLL_MS);
+        this.checkApi();
+        this.rawTimer = window.setInterval(function () { self.checkRaw(); }, RAW_POLL_MS);
+        this.apiTimer = window.setInterval(function () { if (!self.rateLimited || Date.now() > self.rateLimited) self.checkApi(); }, API_POLL_MS);
       }
-      stopPolling() { if (this.pollTimer !== null) { window.clearInterval(this.pollTimer); this.pollTimer = null; } }
+      stopPolling() {
+        if (this.rawTimer) { window.clearInterval(this.rawTimer); this.rawTimer = null; }
+        if (this.apiTimer) { window.clearInterval(this.apiTimer); this.apiTimer = null; }
+      }
+      mailPath() { return 'tablet/' + this.code + '.json'; }
 
-      poll() {
+      // Fresh read through the GitHub API (uses one of 60 unauthenticated requests per hour)
+      checkApi() {
         if (this.destroyed) return;
         var self = this, xhr = new XMLHttpRequest();
-        xhr.open('GET', RELAY + TOPIC_PREFIX + this.code + '/json?poll=1&since=latest&t=' + Date.now());
-        xhr.timeout = 8000;
+        xhr.open('GET', 'https://api.github.com/repos/' + REPO + '/contents/' + this.mailPath() + '?ref=' + BRANCH + '&t=' + Date.now());
+        xhr.setRequestHeader('Accept', 'application/vnd.github+json');
+        xhr.timeout = 10000;
         xhr.onreadystatechange = function () {
           if (xhr.readyState !== 4 || self.destroyed) return;
           self.lastCheck = Date.now();
-          if (xhr.status !== 200) { self.relayOk = false; self.drawStatusOnly(); return; }
-          self.relayOk = true;
-          var lines = String(xhr.responseText || '').split('\n'), msg = null;
-          for (var i = 0; i < lines.length; i++) {
-            if (!lines[i]) continue;
-            try { var o = JSON.parse(lines[i]); if (o.event === 'message') msg = o; } catch (e) { }
-          }
-          if (msg && msg.id !== self.lastId) {
+          if (xhr.status === 200) {
+            self.netOk = true;
             try {
-              var f = JSON.parse(msg.message);
-              if (f && f.v === 1 && f.dep && f.arr) {
-                self.lastId = msg.id; self.flight = f; self.status = ''; self.statusCls = '';
-                self.draw();
-                return;
-              }
-            } catch (e) { console.warn(LOG + 'ignored a message that is not a Route Desk flight'); }
-            self.lastId = msg.id;
-          }
+              var j = JSON.parse(xhr.responseText);
+              var txt = decodeURIComponent(escape(atob(String(j.content || '').replace(/\s/g, ''))));
+              self.receive(txt);
+            } catch (e) { console.warn(LOG + 'could not read the mailbox file', e); }
+          } else if (xhr.status === 404) { self.netOk = true; }
+          else if (xhr.status === 403 || xhr.status === 429) { self.netOk = true; self.rateLimited = Date.now() + 15 * 60000; self.checkRaw(); }
+          else { self.netOk = false; self.checkRaw(); }
           self.drawStatusOnly();
         };
-        try { xhr.send(); } catch (e) { this.relayOk = false; }
+        try { xhr.send(); } catch (e) { this.netOk = false; this.checkRaw(); }
+      }
+
+      // Background read from the raw file server (no hourly limit; GitHub may cache it for a few minutes)
+      checkRaw() {
+        if (this.destroyed) return;
+        var self = this, xhr = new XMLHttpRequest();
+        xhr.open('GET', 'https://raw.githubusercontent.com/' + REPO + '/' + BRANCH + '/' + this.mailPath() + '?t=' + Date.now());
+        xhr.timeout = 10000;
+        xhr.onreadystatechange = function () {
+          if (xhr.readyState !== 4 || self.destroyed) return;
+          self.lastCheck = Date.now();
+          if (xhr.status === 200) { self.netOk = true; self.receive(xhr.responseText); }
+          else if (xhr.status === 404) self.netOk = true;
+          else self.netOk = false;
+          self.drawStatusOnly();
+        };
+        try { xhr.send(); } catch (e) { this.netOk = false; }
+      }
+
+      receive(text) {
+        var f;
+        try { f = JSON.parse(text); } catch (e) { return; }
+        if (!f || f.v !== 1 || !f.dep || !f.arr) return;
+        var key = f.sent + '|' + f.dep + '|' + f.arr;
+        if (key === this.lastKey) return;
+        if (this.flight && f.sent && this.flight.sent && f.sent < this.flight.sent) return; // a stale cached copy
+        this.lastKey = key; this.flight = f; this.status = ''; this.statusCls = '';
+        this.draw();
       }
 
       manager() {
@@ -237,7 +268,7 @@
         var st = root.querySelector('.rd-status'), chk = root.querySelector('.rd-check');
         if (st) { st.textContent = this.status || ''; st.className = 'rd-status' + (this.statusCls ? ' ' + this.statusCls : ''); }
         if (chk) {
-          chk.textContent = this.relayOk === false ? 'Cannot reach the relay right now. Retrying…' :
+          chk.textContent = this.netOk === false ? 'Cannot reach GitHub right now. Retrying…' :
             this.lastCheck ? 'Checked for new flights ' + new Date(this.lastCheck).toLocaleTimeString() : 'Checking for flights…';
         }
       }
@@ -249,7 +280,9 @@
           '<div class="rd-code">Tablet code<b>' + esc(c) + '</b></div></div><div class="rd-body">';
         if (!f) {
           h += '<div class="rd-card"><div class="rd-wait">No flight yet.<br>In Route Desk on your PC or phone, press <b style="letter-spacing:0">Send to tablet</b> and enter the code <b>' + esc(c) + '</b>.</div>' +
-            '<div class="rd-muted">This screen updates by itself. Flights sent in the last 12 hours show up here.</div>' +
+            '<div class="rd-muted">This screen checks for new flights by itself. If one doesn\'t appear within a minute, tap Check now.</div>' +
+            '<div class="rd-btns" style="margin-top:12px"><div class="rd-btn" data-act="check">Check now</div></div>' +
+            '<div class="rd-status"></div>' +
             '<div class="rd-muted rd-check"></div><div class="rd-muted"><span class="rd-link" data-act="newcode">Make a new tablet code</span></div></div>';
         } else {
           var dep = 'RWY ' + (f.dr || '—') + (f.sid ? ' · ' + f.sid + (f.sidT ? '.' + f.sidT : '') : '');
@@ -267,7 +300,8 @@
             '<div class="rd-btns">' +
             '<div class="rd-btn primary" data-act="load">Load flight plan</div>' +
             '<div class="rd-btn" data-act="avionics">Send to aircraft only</div>' +
-            '<div class="rd-btn" data-act="atc">File with ATC</div></div>' +
+            '<div class="rd-btn" data-act="atc">File with ATC</div>' +
+            '<div class="rd-btn" data-act="check">Check for a newer flight</div></div>' +
             '<div class="rd-status"></div>' +
             '<div class="rd-muted">Works with aircraft that use the sim\'s own avionics (default airliners and GA). PMDG, Fenix and FlyByWire keep their own FMS: load the route there from the FMC entry sheet or SimBrief.</div>' +
             '<div class="rd-muted rd-check"></div><div class="rd-muted">Tablet code ' + esc(c) + '</div>';
@@ -279,7 +313,8 @@
           btns[i].addEventListener('click', (function (b) {
             return function () {
               var a = b.getAttribute('data-act');
-              if (a === 'newcode') { self.code = newCode(); writeStore(CODE_KEY, self.code); self.flight = null; self.lastId = ''; self.draw(); self.startPolling(); }
+              if (a === 'newcode') { self.code = newCode(); writeStore(CODE_KEY, self.code); self.flight = null; self.lastKey = ''; self.draw(); self.startPolling(); }
+              else if (a === 'check') { self.setStatus('Checking…', ''); self.checkApi(); self.checkRaw(); window.setTimeout(function () { if (self.status === 'Checking…') self.setStatus('', ''); }, 4000); }
               else self.act(a);
             };
           })(btns[i]));
