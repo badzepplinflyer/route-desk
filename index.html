@@ -289,7 +289,7 @@ td.cons{color:var(--accent)}
 .chtab:focus-visible,.chcard:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .chbar input{flex:1 1 180px;min-width:0;font:500 13px var(--f-body);padding:6px 9px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink)}
 .chgroups{max-height:620px;overflow-y:auto;padding:4px 12px 12px;display:flex;flex-direction:column;gap:12px}
-.chsec{--c:var(--c-oth);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.chsec{--c:var(--c-oth);flex:none;border:1px solid var(--line);border-radius:8px;overflow:hidden}
 .chsec>header{display:flex;align-items:center;gap:8px;padding:8px 12px;background:color-mix(in srgb,var(--c) 13%,var(--panel));border-bottom:1px solid color-mix(in srgb,var(--c) 30%,var(--line))}
 .chsec>header i{width:4px;align-self:stretch;border-radius:2px;background:var(--c)}
 .chsec>header h3{margin:0;font:700 12px var(--f-body);letter-spacing:.1em;text-transform:uppercase;color:var(--c)}
@@ -2238,7 +2238,7 @@ addEventListener('hashchange',()=>showView(location.hash==='#map'?'map':'plan'))
 
 
 /* ---------- tell the person when a newer version is published ---------- */
-const APP_VERSION='2026-10-29.6';
+const APP_VERSION='2026-10-29.7';
 async function checkForUpdate(){try{const t=await (await fetch(location.pathname+'?v='+Date.now(),{cache:'no-store'})).text();
   const m=t.match(/APP_VERSION='([^']+)'/);if(m&&m[1]!==APP_VERSION)toast('A newer version of Route Desk is available',false,{label:'Reload',fn:()=>location.reload(),ms:60000});}catch(e){}}
 setTimeout(checkForUpdate,8000);setInterval(checkForUpdate,10*60000);
