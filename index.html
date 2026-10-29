@@ -366,6 +366,7 @@ tfoot td{font-weight:500;border-bottom:0;color:var(--muted)}
             <label for="fAltn">Alternate<input id="fAltn" class="icao-f" autocomplete="off" spellcheck="false" placeholder="ICAO"><div class="ac" id="fAltnAc" hidden></div><small id="fAltnName"></small></label>
             <label for="fDepRwy">Departure runway<select id="fDepRwy"></select><small id="fDepRwyWhy"></small></label>
             <label for="fArrRwy">Arrival runway<select id="fArrRwy"></select><small id="fArrRwyWhy"></small></label>
+            <label for="fAppType">Approach<select id="fAppType"></select><small id="fAppWhy"></small></label>
           </div>
           <label class="ffull" for="fRoute">Route<textarea id="fRoute" rows="3" spellcheck="false" placeholder="SSTIK5.KAYEX BCE J60 ... BLAID2"></textarea></label>
           <div class="rbar">
@@ -477,8 +478,9 @@ tfoot td{font-weight:500;border-bottom:0;color:var(--muted)}
             <select id="starSel"></select>
             <select id="starTrSel" aria-label="STAR transition"></select>
             <button type="button" class="pv" id="pvStar">Preview STARs on map</button>
-            <label class="lab" for="appSel">Approach</label>
-            <select id="appSel"></select>
+            <label class="lab" for="appType">Approach</label>
+            <select id="appType" aria-label="Approach type"></select>
+            <select id="appSel" aria-label="Specific approach"></select>
             <select id="appTrSel" aria-label="Approach transition"></select>
             <button type="button" class="pv" id="pvApp">Preview approaches on map</button>
           </div>
@@ -995,7 +997,8 @@ function removeRecent(key){const before=getRecents(),x=before.find(e=>e.key===ke
   toast('Removed '+x.label,false,{label:'Undo',fn:()=>{saveRecents(before);if(plan&&plan._key===key)plan.noSave=false;drawRecents();}});}
 function clearRecents(){const before=getRecents();saveRecents([]);if(plan)plan.noSave=true;drawRecents();
   toast('Cleared '+before.length+' recent flights',false,{label:'Undo',fn:()=>{saveRecents(before);if(plan)plan.noSave=false;drawRecents();}});}
-function defaultSetup(src){return {dep:src.depId,depRwy:src.depRwy||'',arr:src.dstId,arrRwy:src.dstRwy||'',app:src.wps.some(p=>p.app)?'FILE':'NONE'};}
+function lastAppType(){try{return localStorage.getItem('routedesk.appType')||'';}catch(e){return '';}}
+function defaultSetup(src){return {appType:src.wps.some(p=>p.app)?'':lastAppType(),appMode:'auto',appTrMode:'auto',dep:src.depId,depRwy:src.depRwy||'',arr:src.dstId,arrRwy:src.dstRwy||'',app:src.wps.some(p=>p.app)?'FILE':'NONE'};}
 function load(xml,{sample=false,entry=null}={}){
   const prevBrief=plan&&plan.brief?{...plan.brief}:null;
   let src;try{src=parsePln(xml);}catch(err){toast(err.message,true);return;}
@@ -1149,7 +1152,31 @@ function matchRw(k,rw){if(!rw)return false;k=String(k||'').toUpperCase();if(k===
   const n=k.replace(/^RW/,''),r=normRwy(rw),base=r.replace(/[LRC]$/,'');
   if(/B$/.test(n))return base===normRwy(n.slice(0,-1));if(/^\d+$/.test(n))return base===normRwy(n);return normRwy(n)===r;}
 const sidFits=(p,rw)=>!rw||!Object.keys(p.rw).length||Object.keys(p.rw).some(k=>matchRw(k,rw));
-const starFits=sidFits; // a STAR with runway transitions only serves those runways
+const starFits=sidFits;
+// approach families the pilot chooses from; the app picks the specific approach and entry
+const APP_FAMILIES=[['ILS','ILS'],['RNAV','RNAV (GPS)'],['RNP','RNAV (RNP)'],['LOC','LOC / LDA / SDF'],['VOR','VOR'],['NDB','NDB'],['VIS','Visual']];
+const famOf=a=>{const t=String(a.t||a.name||'');return /^ILS|^IGS|^GLS/.test(t)?'ILS':/RNP/.test(t)?'RNP':/^RNAV|^GPS/.test(t)?'RNAV':/^LOC|^LDA|^SDF/.test(t)?'LOC':/^VOR|^TACAN/.test(t)?'VOR':/^NDB/.test(t)?'NDB':'';};
+const famName=k=>(APP_FAMILIES.find(f=>f[0]===k)||[k,k])[1];
+const FALLBACK={ILS:['ILS','RNAV','RNP','LOC','VOR'],RNAV:['RNAV','RNP','ILS','LOC','VOR'],RNP:['RNP','RNAV','ILS','LOC'],LOC:['LOC','ILS','RNAV','VOR'],VOR:['VOR','RNAV','ILS','LOC'],NDB:['NDB','VOR','RNAV','ILS']};
+// cost of joining approach `a` via transition `tr` from point P (the end of the STAR / route)
+function joinCost(a,tr,pd,P,Pident,vectors){
+  const legs=[...(tr?a.tr[tr]:[]),...a.fin],pts=pathPts(legs,pd,null,null);if(!pts.length)return {c:1e9};
+  const ids=legs.map(g=>g[0]).filter(f=>f&&pd.fx[f]&&!/^RW\d/.test(f));
+  const len=q=>{let L=0;for(let i=1;i<q.length;i++)L+=gcDist({lat:q[i-1][0],lon:q[i-1][1]},{lat:q[i][0],lon:q[i][1]});return L;};
+  const k=Pident?ids.indexOf(Pident):-1;
+  if(k>=0)return {c:len(pts.slice(k)),how:'join',fix:Pident};      // the route already passes through this approach
+  let c=gcDist(P,{lat:pts[0][0],lon:pts[0][1]})+len(pts);
+  if(pts.length>1){const b1=gcBrg(P,{lat:pts[0][0],lon:pts[0][1]}),b2=gcBrg({lat:pts[0][0],lon:pts[0][1]},{lat:pts[1][0],lon:pts[1][1]});
+    const turn=Math.abs(((b2-b1)%360+540)%360-180);if(turn>100)c+=(turn-100)/4;}
+  if(!tr)c+=vectors?-15:6; // vectors to final: expected after a STAR that ends in vectors
+  return {c,how:tr?'iaf':'vectors',fix:tr||ids[0]};}
+function bestApproach(pd,fam,rwy,P,Pident,vectors){
+  let best=null;
+  for(const f of (FALLBACK[fam]||[fam])){
+    pd.app.filter(a=>normRwy(a.rw)===normRwy(rwy)&&famOf(a)===f).forEach(a=>{
+      ['',...Object.keys(a.tr)].forEach(tr=>{const j=joinCost(a,tr,pd,P,Pident,vectors);if(!best||j.c<best.c)best={a,tr,...j,fam:f};});});
+    if(best)break;}
+  return best;} // a STAR with runway transitions only serves those runways
 const appFits=(a,rw)=>!rw||!a.rw||normRwy(a.rw)===normRwy(rw);
 function consText(ad,a1,a2,spd){
   const f=v=>v>=18000?'FL'+Math.round(v/100):String(v);let t='';
@@ -1184,7 +1211,9 @@ function rebuild(){
   if(s.app==='FILE'&&ap&&srcDst){ // match the plan's approach to the real one
     const t=up(srcName('app')),rw=normRwy(s.arrRwy);const m=ap.app.find(a=>normRwy(a.rw)===rw&&t&&a.name.toUpperCase().startsWith(t.split(' ')[0]));
     if(m){s.app='P:'+m.id;appObj=m;}}
-  if(appObj&&appObj.rw&&normRwy(s.arrRwy)!==normRwy(appObj.rw))s.arrRwy=appObj.rw;
+  if(appObj&&appObj.rw&&normRwy(s.arrRwy)!==normRwy(appObj.rw)){
+    if(s.appMode==='manual'||!s.appType)s.arrRwy=appObj.rw;   // an approach you picked sets the runway
+    else{appObj=null;if(s.appTrMode!=='manual')s.appTr=undefined;}}  // an automatic pick follows the runway instead
   const depEnd=findEnd(depApt,s.depRwy),dstEnd=findEnd(dstApt,s.arrRwy);
   const depPos=depEnd?depEnd.thr:depApt?{lat:depApt.lat,lon:depApt.lon}:srcDep?src.wps[0].pos:null;
   const dstPos=dstEnd?dstEnd.land:dstApt?{lat:dstApt.lat,lon:dstApt.lon}:srcDst?src.wps[src.wps.length-1].pos:null;
@@ -1212,6 +1241,18 @@ function rebuild(){
   if(starObj){const rk=Object.keys(starObj.rw).find(k=>matchRw(k,dstEnd?dstEnd.id:''));
     const legs=[...(s.starTr&&starObj.tr[s.starTr]||[]),...starObj.cm,...(rk?starObj.rw[rk]:[])];
     starIt=procItems(legs,ap,'STAR',(s.starTr?s.starTr+'.':'')+starObj.id,'arr');}
+  plan.appPick=null;
+  if(s.appType&&s.appMode!=='manual'&&s.appType!=='VIS'){
+    if(ap&&dstEnd){
+      const lastSt=starIt.filter(x=>x.pos).pop(),lastEnr=mid.filter(x=>x.pos).pop();
+      const P=lastSt?lastSt.pos:lastEnr?lastEnr.pos:depPos,Pid=lastSt?lastSt.ident:lastEnr?lastEnr.ident:'';
+      const rk=starObj?Object.keys(starObj.rw).find(k=>matchRw(k,dstEnd.id)):null;
+      const vectors=!!(starObj&&[...(rk?starObj.rw[rk]:[]),...starObj.cm].slice(-2).some(g=>/^(VM|FM)$/.test(g[1])));
+      const b=bestApproach(ap,s.appType,dstEnd.id,P,Pid,vectors);
+      if(b){appObj=b.a;s.app='P:'+b.a.id;if(s.appTrMode!=='manual')s.appTr=b.tr;plan.appPick={...b,from:lastSt?(starObj.id):'your route',vectors};}
+      else{appObj=null;s.app=APP_TYPES[s.appType]?s.appType:'NONE';plan.appPick={none:true};}}
+    else if(dstEnd){appObj=null;s.app=APP_TYPES[s.appType]?s.appType:'ILS';} // no published procedures: generic approach
+  }else if(s.appType==='VIS'&&s.appMode!=='manual'){appObj=null;s.app=dstEnd?'VIS':'NONE';}
   if(appObj){
     if(s.appTr===undefined){const lastFix=(starIt.filter(x=>x.pos).pop()||{}).ident;
       s.appTr=Object.keys(appObj.tr).find(t=>t===lastFix||(appObj.tr[t][0]||[])[0]===lastFix)||'';}
@@ -1296,10 +1337,21 @@ function renderSetup(){
   appSel.innerHTML=html;appSel.value=s.app;if(appSel.value!==s.app)appSel.value='NONE';
   const o=plan.appObj;appTr.innerHTML=o?opts(Object.keys(o.tr).map(t=>[t,t+' (IAF)']),s.appTr,'Vectors to final'):opts([],'','Transition');
   appTr.value=s.appTr||'';appTr.disabled=!o||!Object.keys(o.tr).length;
+  // approach type selectors (map + plan)
+  const typeOpts='<option value="">Choose approach type…</option>'+APP_FAMILIES.map(([k,l])=>`<option value="${k}">${esc(l)}</option>`).join('');
+  [$('appType'),$('fAppType')].forEach(el=>{if(document.activeElement!==el){el.innerHTML=typeOpts;el.value=s.appType||'';}});
+  const pk=plan.appPick;let why='';
+  if(s.appType&&s.appMode==='manual')why='Set by you · choose a type again to let Route Desk pick';
+  else if(pk&&pk.none)why=`No ${famName(s.appType)} approach to runway ${plan.dstRwy||'—'}`;
+  else if(pk){why=(pk.fam!==s.appType?`No ${famName(s.appType)} to ${plan.dstRwy}, so ${pk.a.name}. `:'')+
+    (pk.how==='join'?`Joins at ${pk.fix}, which is on ${pk.from}`:pk.how==='vectors'?(pk.vectors?`${pk.from} ends with vectors to final`:'Vectors to final is the shortest way in'):`Enter at ${pk.fix}, the best fit from ${pk.from}`);}
+  else if(s.appType&&!plan.dstRwy)why='Pick an arrival runway first';
+  $('fAppWhy').textContent=plan.appObj?plan.appObj.name+(s.appTr?' via '+s.appTr:'')+(why?' · '+why:''):why;
+  plan.appWhy=why;
   // info line
   const A=plan.appInfo,info=$('appInfo');
   if(o){const fin=o.fin.filter(g=>g[0]),ma=plan.missed.filter(x=>x.pos).map(x=>x.ident);
-    info.innerHTML=`<b>${esc(o.name)}</b>${s.appTr?' via '+esc(s.appTr):' · vectors to final'}`+(A&&A.real?` · FAF ${esc(A.fafName)} ${fmtFt(A.fafAlt)} ft`:'')+
+    info.innerHTML=`<b>${esc(o.name)}</b>${s.appTr?' via '+esc(s.appTr):' · vectors to final'}`+(plan.appWhy?` · ${esc(plan.appWhy)}`:'')+(A&&A.real?` · FAF ${esc(A.fafName)} ${fmtFt(A.fafAlt)} ft`:'')+
       (ma.length?` · missed: ${esc(ma.join(' → '))}`:'')+`<br>FAA CIFP cycle ${esc(ap.cycle||'')}. Check the chart for minimums.`;}
   else if(A){const e=A.end;info.innerHTML=`<b>${esc(A.lab)}</b> · final ${trk3(e.course)}°T · `+(A.T.fin?`${A.dist} nm final at ${fmtFt(A.fafAlt)} ft`:
       `IF ${A.T.ifd} nm at ${fmtFt(A.ifAlt)} ft · FAF ${A.dist} nm at ${fmtFt(A.fafAlt)} ft · ${A.T.prec?'DA':'MDA'} ${fmtFt(A.mins)} ft`)+`<br>Generic straight-in approach for planning. Published procedures aren't available for this airport.`;}
@@ -1336,20 +1388,22 @@ $('depRwySel').addEventListener('change',e=>{touched();const s=plan.setup;s.depR
   if(dp&&s.sid){const o=dp.sid.find(x=>x.id===s.sid);if(o&&!sidFits(o,s.depRwy)){s.sid='';s.sidTr='';}}applySetup(false);});
 $('sidSel').addEventListener('change',e=>{touched();plan.setup.sid=e.target.value;plan.setup.sidTr=undefined;applySetup(false);});
 $('sidTrSel').addEventListener('change',e=>{touched();plan.setup.sidTr=e.target.value;applySetup(false);});
-$('starSel').addEventListener('change',e=>{touched();plan.setup.star=e.target.value;plan.setup.starTr=undefined;plan.setup.appTr=undefined;applySetup(false);});
+$('starSel').addEventListener('change',e=>{touched();plan.setup.star=e.target.value;plan.setup.starTr=undefined;if(plan.setup.appTrMode!=='manual')plan.setup.appTr=undefined;fitRunwaysToProcs(plan.setup);applySetup(false);});
 $('starTrSel').addEventListener('change',e=>{touched();plan.setup.starTr=e.target.value;applySetup(false);});
-$('appTrSel').addEventListener('change',e=>{touched();plan.setup.appTr=e.target.value;applySetup(false);});
+$('appTrSel').addEventListener('change',e=>{touched();plan.setup.appTr=e.target.value;plan.setup.appTrMode='manual';applySetup(false);});
 $('strip').addEventListener('click',e=>{const b=e.target.closest('button.fx');if(!b)return;const i=+b.dataset.i,p=plan.wps[i];if(i===selected){select(-1);return;}map.panTo([p.pos.lat,p.pos.lon]);select(i);});
 $('arrRwySel').addEventListener('change',e=>{touched();const s=plan.setup;s.arrRwy=e.target.value;s.arrRwyMode=e.target.value?'manual':'auto';
-  if(String(s.app).startsWith('P:')){const ap=getProcs(s.arr),a=ap&&ap.app.find(x=>x.id===s.app.slice(2));if(a&&a.rw&&normRwy(a.rw)!==normRwy(s.arrRwy)){s.app='NONE';s.appTr=undefined;}}applySetup(false);});
-$('appSel').addEventListener('change',e=>{touched();plan.setup.app=e.target.value;plan.setup.appTr=undefined;if(String(e.target.value).startsWith('P:'))plan.setup.arrRwyMode='manual';applySetup(false);});
+  if(String(s.app).startsWith('P:')){const ap=getProcs(s.arr),a=ap&&ap.app.find(x=>x.id===s.app.slice(2));if(a&&a.rw&&normRwy(a.rw)!==normRwy(s.arrRwy)){s.app='NONE';s.appTr=undefined;s.appMode='auto';}}applySetup(false);});
+$('appSel').addEventListener('change',e=>{touched();const s=plan.setup,v=e.target.value;s.app=v;s.appTr=undefined;s.appTrMode='auto';
+  if(String(v).startsWith('P:')){s.arrRwyMode='manual';const ap=getProcs(s.arr),a=ap&&ap.app.find(x=>x.id===v.slice(2));s.appType=a?famOf(a):'';s.appMode='manual';}
+  else if(v==='NONE'){s.appType='';s.appMode='auto';}else{s.appType=v;s.appMode='manual';}applySetup(false);});
 $('goDirect').addEventListener('click',()=>{if(!plan)return;touched();plan.direct=true;applySetup(false);toast('Route cleared · direct '+plan.depId+' to '+plan.dstId);});
 $('resetPln').addEventListener('click',()=>{if(!plan||!plan.src)return;plan.setup=defaultSetup(plan.src);plan.direct=false;plan.userRoute=null;routeDirty=false;applySetup(true);});
 $('newFlight').addEventListener('click',async()=>{
   if(!plan)return;
   if(!(await loadDB())){toast('New flights need the airport database, which loads on the web version.',true);return;}
   plan.src=null;plan.xml=null;plan.sample=false;plan.direct=true;plan.userRoute=null;routeDirty=false;plan._key='new:'+Date.now();
-  plan.setup={dep:plan.depId,depRwy:'',arr:plan.dstId,arrRwy:'',app:'NONE',sid:'',star:''};
+  plan.setup={dep:plan.depId,depRwy:'',arr:plan.dstId,arrRwy:'',app:'NONE',sid:'',star:'',appType:lastAppType(),appMode:'auto',appTrMode:'auto'};
   $('sampleBadge').hidden=true;
   if(applySetup(true)){$('depInput').focus();toast('New flight: type the departure, then the arrival');}
 });
@@ -1489,7 +1543,7 @@ $('fAc').addEventListener('change',e=>{if(!plan)return;const b=plan.brief;Object
   if(id==='gs')b.tas=Math.max(40,(+$('gs').value||0)-(+b.wind||0));if(id==='burn')b.burn=+$('burn').value||0;if(id==='crz')b.crz=+$('crz').value||0;renderOfp();persistSoon();}));
 
 function setDep(code){if(!plan)return;const s=plan.setup;touched();if(code.toUpperCase()===String(s.dep).toUpperCase())return;closePreview();s.dep=code;s.depRwy='';s.depRwyMode='auto';s.sid=undefined;s.sidTr=undefined;plan.rwyWhy={...plan.rwyWhy,dep:''};applySetup(true);}
-function setArr(code){if(!plan)return;const s=plan.setup;touched();if(code.toUpperCase()===String(s.arr).toUpperCase())return;closePreview();s.arr=code;s.arrRwy='';s.arrRwyMode='auto';s.star=undefined;s.starTr=undefined;s.app='NONE';s.appTr=undefined;plan.rwyWhy={...plan.rwyWhy,arr:''};applySetup(true);}
+function setArr(code){if(!plan)return;const s=plan.setup;touched();if(code.toUpperCase()===String(s.arr).toUpperCase())return;closePreview();s.arr=code;s.arrRwy='';s.arrRwyMode='auto';s.star=undefined;s.starTr=undefined;s.app='NONE';s.appTr=undefined;s.appMode='auto';s.appTrMode='auto';if(s.appType===undefined)s.appType=lastAppType();plan.rwyWhy={...plan.rwyWhy,arr:''};applySetup(true);}
 wireSearch('fDep','fDepAc',()=>plan?plan.depId:'',setDep);
 wireSearch('fArr','fArrAc',()=>plan?plan.dstId:'',setArr);
 wireSearch('fAltn','fAltnAc',()=>plan&&plan.brief?plan.brief.altn:'',code=>{plan.brief.altn=code.toUpperCase();renderOfp();persistSoon();});
@@ -1624,11 +1678,24 @@ async function routeOptions(){
   }
   opts.forEach(o=>withRunway(o,cx));
   return {opts};}
+// With runways on Auto, keep the airport's flow but move to a runway the SID / STAR actually serves
+function fitRunwaysToProcs(s){
+  const flowOk=(a,b)=>!b||Math.abs(((a.course-b.course)%360+540)%360-180)<60;
+  const pickEnd=(apt,cur,fits,pd,kind)=>{if(!apt)return null;const c=apt.ends.filter(e=>fits(e.id)&&flowOk(e,cur));if(!c.length)return null;
+    const ils=e=>pd&&pd.app.some(a=>normRwy(a.rw)===normRwy(e.id)&&/^ILS/.test(a.name))?1:0;
+    return c.sort((x,y)=>(kind==='arr'?ils(y)-ils(x):0)||((y.len||0)-(x.len||0)))[0];};
+  plan.rwyWhy=plan.rwyWhy||{};
+  if(s.depRwyMode!=='manual'&&s.sid){const dp=getProcs(s.dep),o=dp&&dp.sid.find(x=>x.id===s.sid),apt=aptByCode(s.dep),cur=findEnd(apt,s.depRwy);
+    if(o&&!(cur&&sidFits(o,cur.id))){const e=pickEnd(apt,cur,id=>sidFits(o,id),dp,'dep');if(e){s.depRwy=e.id;plan.rwyWhy.dep=(plan.rwyWhy.dep?plan.rwyWhy.dep+', ':'')+'served by '+o.id;}}}
+  if(s.arrRwyMode!=='manual'&&s.star){const ap=getProcs(s.arr),o=ap&&ap.star.find(x=>x.id===s.star),apt=aptByCode(s.arr),cur=findEnd(apt,s.arrRwy);
+    if(o&&!(cur&&starFits(o,cur.id))){const e=pickEnd(apt,cur,id=>starFits(o,id),ap,'arr');if(e){s.arrRwy=e.id;plan.rwyWhy.arr=(plan.rwyWhy.arr?plan.rwyWhy.arr+', ':'')+'served by '+o.id;
+      if(String(s.app).startsWith('P:')&&s.appMode==='manual'){s.app='NONE';s.appTr=undefined;s.appMode='auto';}}}}}
 function applyRoute(res,label){
   const msg=$('fRouteMsg');
   if(res.err){msg.textContent=res.err;msg.className='hint bad';return;}
   touched();const s=plan.setup;plan.userRoute=res.route.map(toWp);plan.direct=false;
-  s.sid=res.sid||'';s.sidTr=res.sid?(res.sidTr||''):'';s.star=res.star||'';s.starTr=res.star?(res.starTr||''):'';s.appTr=undefined;if(res.depRwy)s.depRwy=res.depRwy;
+  s.sid=res.sid||'';s.sidTr=res.sid?(res.sidTr||''):'';s.star=res.star||'';s.starTr=res.star?(res.starTr||''):'';if(s.appTrMode!=='manual')s.appTr=undefined;if(res.depRwy)s.depRwy=res.depRwy;
+  fitRunwaysToProcs(s);
   routeDirty=false;applySetup(true);
   const unk=res.unknown||[];msg.className=unk.length?'hint bad':'hint';
   msg.textContent=unk.length?'Not recognized: '+unk.join(', '):(label+' · '+Math.round(plan.total)+' nm, '+plan.wps.length+' fixes'+(res.note?'. '+res.note:''));
@@ -1800,8 +1867,9 @@ async function autoRunways(force){
     if(doDep){const r=await pick(s.dep,'dep');if(r){plan.rwyWhy.dep=r.why;if(normRwy(r.id)!==normRwy(s.depRwy)){s.depRwy=r.id;changed=true;
       const dp=getProcs(s.dep),o=dp&&s.sid&&dp.sid.find(x=>x.id===s.sid);if(o&&!sidFits(o,s.depRwy)){s.sid='';s.sidTr='';}}}}
     if(doArr){const r=await pick(s.arr,'arr');if(r){plan.rwyWhy.arr=r.why;if(normRwy(r.id)!==normRwy(s.arrRwy)){s.arrRwy=r.id;changed=true;
-      if(String(s.app).startsWith('P:')){const ap=getProcs(s.arr),a=ap&&ap.app.find(x=>x.id===s.app.slice(2));if(a&&a.rw&&normRwy(a.rw)!==normRwy(s.arrRwy)){s.app='NONE';s.appTr=undefined;}}}}}
+      if(String(s.app).startsWith('P:')){const ap=getProcs(s.arr),a=ap&&ap.app.find(x=>x.id===s.app.slice(2));if(a&&a.rw&&normRwy(a.rw)!==normRwy(s.arrRwy)){s.app='NONE';s.appTr=undefined;s.appMode='auto';}}}}}
   }finally{rwyBusy=false;}
+  {const d=s.depRwy,a=s.arrRwy;fitRunwaysToProcs(s);if(s.depRwy!==d||s.arrRwy!==a)changed=true;}
   if(changed)applySetup(false);else renderPlanner();
   return changed;}
 function fillRwySel(sel,apt,cur,mode,why){
@@ -1814,7 +1882,7 @@ $('fDepRwy').addEventListener('change',e=>{if(!plan)return;touched();const s=pla
     const dp=getProcs(s.dep),o=dp&&s.sid&&dp.sid.find(x=>x.id===s.sid);if(o&&!sidFits(o,s.depRwy)){s.sid='';s.sidTr='';}applySetup(false);}});
 $('fArrRwy').addEventListener('change',e=>{if(!plan)return;touched();const s=plan.setup;
   if(e.target.value==='AUTO'){s.arrRwyMode='auto';autoRunways(true);}else{s.arrRwyMode='manual';s.arrRwy=e.target.value;
-    if(String(s.app).startsWith('P:')){const ap=getProcs(s.arr),a=ap&&ap.app.find(x=>x.id===s.app.slice(2));if(a&&a.rw&&normRwy(a.rw)!==normRwy(s.arrRwy)){s.app='NONE';s.appTr=undefined;}}applySetup(false);}});
+    if(String(s.app).startsWith('P:')){const ap=getProcs(s.arr),a=ap&&ap.app.find(x=>x.id===s.app.slice(2));if(a&&a.rw&&normRwy(a.rw)!==normRwy(s.arrRwy)){s.app='NONE';s.appTr=undefined;s.appMode='auto';}}applySetup(false);}});
 $('fExtraMin').addEventListener('input',e=>{if(!plan)return;const b=plan.brief;b.extra=Math.round((+e.target.value||0)/60*(+b.burn||0));renderPlanner();persistSoon();});
 document.querySelectorAll('[data-xmin],[data-xclear]').forEach(btn=>btn.addEventListener('click',()=>{if(!plan)return;const b=plan.brief;
   b.extra=btn.dataset.xclear?0:Math.round((+b.extra||0)+(+btn.dataset.xmin)/60*(+b.burn||0));renderPlanner();persistSoon();}));
@@ -1993,10 +2061,16 @@ addEventListener('hashchange',()=>showView(location.hash==='#map'?'map':'plan'))
 
 
 /* ---------- tell the person when a newer version is published ---------- */
-const APP_VERSION='2026-10-29.2';
+const APP_VERSION='2026-10-29.3';
 async function checkForUpdate(){try{const t=await (await fetch(location.pathname+'?v='+Date.now(),{cache:'no-store'})).text();
   const m=t.match(/APP_VERSION='([^']+)'/);if(m&&m[1]!==APP_VERSION)toast('A newer version of Route Desk is available',false,{label:'Reload',fn:()=>location.reload(),ms:60000});}catch(e){}}
 setTimeout(checkForUpdate,8000);setInterval(checkForUpdate,10*60000);
+
+
+function setAppType(v){if(!plan)return;touched();const s=plan.setup;s.appType=v;s.appMode='auto';s.appTrMode='auto';s.appTr=undefined;
+  if(!v){s.app='NONE';}try{localStorage.setItem('routedesk.appType',v);}catch(e){}applySetup(false);}
+$('appType').addEventListener('change',e=>setAppType(e.target.value));
+$('fAppType').addEventListener('change',e=>setAppType(e.target.value));
 
 /* ---------- sample plan (example data, KSEA–KSFO via V23) ---------- */
 function dms(v,pos,neg){const s=v<0?neg:pos;v=Math.abs(v);const d=Math.floor(v),mf=(v-d)*60,m=Math.floor(mf),sec=((mf-m)*60).toFixed(2);return `${s}${d}° ${m}' ${sec}"`;}
