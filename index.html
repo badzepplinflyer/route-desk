@@ -15,6 +15,7 @@
   --line:#cdd5da; --grid:#dbe3e3; --route:#c0177a; --route-soft:rgba(192,23,122,.14);
   --accent:#0a6a86; --accent-ink:#ffffff; --warn:#a4560a; --bad:#c62828;
   --terrain:#8a7a5c; --terrain-soft:rgba(138,122,92,.35);
+  --c-apt:#0a6a86; --c-dep:#2f7d4f; --c-arr:#a4560a; --c-app:#c0177a; --c-min:#6b4fd0; --c-oth:#5a6873;
   --f-display:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;
   --f-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
   --f-mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;
@@ -24,7 +25,8 @@
   --bg:#0b1015; --panel:#121920; --ink:#e2e9ee; --muted:#8796a3;
   --line:#25313b; --grid:#1b2630; --route:#ff4cae; --route-soft:rgba(255,76,174,.16);
   --accent:#4cc0da; --accent-ink:#06222a; --warn:#f0a24a; --bad:#ff6b6b;
-  --terrain:#a8946c; --terrain-soft:rgba(168,148,108,.32); color-scheme:dark }}
+  --terrain:#a8946c; --terrain-soft:rgba(168,148,108,.32);
+  --c-apt:#4cc0da; --c-dep:#5fd38d; --c-arr:#f0a24a; --c-app:#ff6ec0; --c-min:#a99cff; --c-oth:#8796a3; color-scheme:dark }}
 *{box-sizing:border-box}
 html,body{margin:0}
 body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:14px;line-height:1.45}
@@ -277,17 +279,31 @@ td.cons{color:var(--accent)}
 .chhead span{color:var(--muted);font-size:12.5px}
 .chhead .links{margin-left:auto;display:flex;gap:10px;font-size:12px}
 .chhead .links a{color:var(--accent)}
-.chfilter{padding:8px 12px;border-bottom:1px solid var(--line)}
-.chfilter input{width:100%;font:500 13px var(--f-body);padding:6px 8px;border:1px solid var(--line);border-radius:5px;background:var(--bg);color:var(--ink)}
-.chgroups{max-height:520px;overflow-y:auto}
-.chg{padding:6px 12px 10px}
-.chg h3{font:600 10px var(--f-body);letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin:6px 0 4px}
-.chlist{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:4px 10px}
-.chi{display:flex;align-items:center;gap:6px;text-align:left;border:1px solid transparent;background:none;color:var(--ink);font:500 12.5px var(--f-mono);padding:5px 6px;border-radius:5px;cursor:pointer;min-width:0}
-.chi:hover{border-color:var(--line);background:var(--bg)}
-.chi.plan{border-color:var(--route);background:var(--route-soft)}
-.chi .tg{flex:none;font:700 9.5px var(--f-body);letter-spacing:.06em;color:#fff;background:var(--route);padding:1px 5px;border-radius:3px}
-.chi .nm{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:10px 12px;border-bottom:1px solid var(--line)}
+.chtabs{display:flex;flex-wrap:wrap;gap:6px}
+.chtab{--c:var(--c-oth);display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:999px;padding:5px 11px 5px 9px;font:600 12px var(--f-body);cursor:pointer}
+.chtab i{width:8px;height:8px;border-radius:50%;background:var(--c)}
+.chtab em{font:600 11px var(--f-mono);font-style:normal;color:var(--muted)}
+.chtab.on{background:var(--c);border-color:var(--c);color:#fff}
+.chtab.on i{background:#fff}.chtab.on em{color:rgba(255,255,255,.85)}
+.chtab:focus-visible,.chcard:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.chbar input{flex:1 1 180px;min-width:0;font:500 13px var(--f-body);padding:6px 9px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink)}
+.chgroups{max-height:620px;overflow-y:auto;padding:4px 12px 12px;display:flex;flex-direction:column;gap:12px}
+.chsec{--c:var(--c-oth);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.chsec>header{display:flex;align-items:center;gap:8px;padding:8px 12px;background:color-mix(in srgb,var(--c) 13%,var(--panel));border-bottom:1px solid color-mix(in srgb,var(--c) 30%,var(--line))}
+.chsec>header i{width:4px;align-self:stretch;border-radius:2px;background:var(--c)}
+.chsec>header h3{margin:0;font:700 12px var(--f-body);letter-spacing:.1em;text-transform:uppercase;color:var(--c)}
+.chsec>header em{font:600 11px var(--f-mono);font-style:normal;color:var(--muted);margin-left:auto}
+.chsub{padding:8px 12px 2px;font:600 10.5px var(--f-mono);letter-spacing:.06em;color:var(--muted);text-transform:uppercase}
+.chcards{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:6px;padding:8px 10px 10px}
+.chcard{position:relative;display:flex;flex-direction:column;gap:3px;text-align:left;border:1px solid var(--line);border-left:3px solid var(--c);background:var(--panel);color:var(--ink);border-radius:6px;padding:7px 9px;cursor:pointer;min-width:0}
+.chcard:hover{background:color-mix(in srgb,var(--c) 8%,var(--panel));border-color:color-mix(in srgb,var(--c) 45%,var(--line));border-left-color:var(--c)}
+.chcard .nm{font:600 12.5px var(--f-mono);line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chcard .meta{display:flex;gap:6px;align-items:center;font:500 10.5px var(--f-body);color:var(--muted)}
+.chcard .kind{font:700 9.5px var(--f-body);letter-spacing:.05em;padding:1px 5px;border-radius:3px;color:var(--c);background:color-mix(in srgb,var(--c) 14%,transparent)}
+.chcard.plan{border-color:var(--c);box-shadow:0 0 0 1px var(--c) inset;background:color-mix(in srgb,var(--c) 10%,var(--panel))}
+.chcard .tg{position:absolute;top:6px;right:6px;font:700 9px var(--f-body);letter-spacing:.08em;color:#fff;background:var(--c);padding:2px 5px;border-radius:3px}
+.chcard.plan .nm{padding-right:44px}
 .chview{position:fixed;inset:0;z-index:2500;background:var(--bg);display:flex;flex-direction:column;padding-top:env(safe-area-inset-top,0px)}
 .chvbar{display:flex;align-items:center;gap:8px;padding:8px max(12px,env(safe-area-inset-left,0px));border-bottom:1px solid var(--line);background:var(--panel);flex-wrap:wrap}
 .chvbar .btn{padding:6px 12px;text-decoration:none}
@@ -2222,7 +2238,7 @@ addEventListener('hashchange',()=>showView(location.hash==='#map'?'map':'plan'))
 
 
 /* ---------- tell the person when a newer version is published ---------- */
-const APP_VERSION='2026-10-29.5';
+const APP_VERSION='2026-10-29.6';
 async function checkForUpdate(){try{const t=await (await fetch(location.pathname+'?v='+Date.now(),{cache:'no-store'})).text();
   const m=t.match(/APP_VERSION='([^']+)'/);if(m&&m[1]!==APP_VERSION)toast('A newer version of Route Desk is available',false,{label:'Reload',fn:()=>location.reload(),ms:60000});}catch(e){}}
 setTimeout(checkForUpdate,8000);setInterval(checkForUpdate,10*60000);
@@ -2242,7 +2258,11 @@ setInterval(()=>{if(plan&&!$('mapView').hidden)loadWx(false).then(()=>renderWx()
 /* ---------- charts (FAA d-TPP, US airports) ---------- */
 let chAuto=false,chIndex=null,chIndexP=null,chCur=null,chFlat=[],chPos=-1;const chCache=new Map();
 function loadChIndex(){if(!chIndexP)chIndexP=fetch('data/charts/index.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(d=>chIndex=d).catch(()=>null);return chIndexP;}
-const CH_GROUPS=[['APD','Airport diagram'],['HOT','Hot spots'],['LAH','Land and hold short'],['MIN','Takeoff and alternate minimums'],['DP','Departures (SIDs)'],['ODP','Obstacle departures'],['STR','Arrivals (STARs)'],['IAP','Approaches'],['','Other']];
+const CH_CATS=[{k:'apt',label:'Airport',codes:['APD','HOT','LAH'],c:'--c-apt'},{k:'dep',label:'Departures',codes:['DP','ODP'],c:'--c-dep'},
+  {k:'arr',label:'Arrivals',codes:['STR'],c:'--c-arr'},{k:'app',label:'Approaches',codes:['IAP'],c:'--c-app'},{k:'min',label:'Minimums',codes:['MIN'],c:'--c-min'},{k:'oth',label:'Other',codes:null,c:'--c-oth'}];
+const CH_KIND={APD:'Diagram',HOT:'Hot spots',LAH:'LAHSO',DP:'SID',ODP:'Obstacle DP',STR:'STAR',MIN:'Minimums',IAP:'Approach'};
+const catOf=code=>CH_CATS.find(c=>c.codes&&c.codes.includes(code))||CH_CATS[CH_CATS.length-1];
+let chTab='all';
 const NUMW=['ZERO','ONE','TWO','THREE','FOUR','FIVE','SIX','SEVEN','EIGHT','NINE','TEN','ELEVEN','TWELVE'];
 function procChartName(id){const m=String(id||'').match(/^([A-Z]+)(\d{1,2})$/);return m?m[1]+' '+(NUMW[+m[2]]||m[2]):'';}
 function chartIsPlanned(c,code){
@@ -2269,20 +2289,39 @@ function renderChQuick(active){const el=$('chQuick');if(!plan){el.innerHTML='';r
   const ids=[['Dep',plan.depId],['Arr',plan.dstId],['Altn',plan.brief&&plan.brief.altn]].filter(x=>x[1]);
   el.innerHTML=ids.map(([r,id])=>`<button type="button" data-ch="${esc(id)}" class="${id===active?'on':''}" title="${r}">${esc(id)}</button>`).join('');
   el.querySelectorAll('[data-ch]').forEach(b=>b.onclick=()=>showCharts(b.dataset.ch));}
+function chartEntries(charts){ // fold "…, CONT.1" pages into the chart they continue
+  const out=[];charts.forEach(c=>{const m=c[1].match(/^(.*?),\s*CONT\.\s*\d+$/);const last=out[out.length-1];
+    if(m&&last&&last.name===m[1]&&last.code===c[0])last.pages.push(c);else out.push({code:c[0],name:c[1],pages:[c]});});return out;}
+function apKind(n){return /^ILS|^LOC|^LDA|^SDF/.test(n)?n.match(/^(ILS OR LOC|ILS|LOC\/DME|LOC|LDA|SDF)/)[1]:/^RNAV \(RNP\)/.test(n)?'RNP':/^RNAV|^GPS/.test(n)?'RNAV':/^VOR|^TACAN/.test(n)?'VOR':/^NDB/.test(n)?'NDB':/VISUAL/.test(n)?'Visual':/^COPTER/.test(n)?'Copter':'Other';}
 function renderCharts(){
-  if(!chCur)return;const {d,base,code}=chCur,q=($('chFilter')&&$('chFilter').value||'').trim().toUpperCase(),body=$('chBody');
-  const groups=CH_GROUPS.map(([k,l])=>[k,l,d.charts.filter(c=>(k?c[0]===k:!CH_GROUPS.some(g=>g[0]&&g[0]===c[0]))&&(!q||c[1].toUpperCase().includes(q)))]).filter(g=>g[2].length);
-  chFlat=[];groups.forEach(g=>g[2].forEach(c=>chFlat.push(c)));
+  if(!chCur)return;const {d,code}=chCur,body=$('chBody'),prevQ=$('chFilter')?$('chFilter').value:'',q=prevQ.trim().toUpperCase();
+  const all=chartEntries(d.charts).filter(e=>!q||e.name.toUpperCase().includes(q)||e.pages.some(p=>p[1].toUpperCase().includes(q)));
+  const byCat=CH_CATS.map(cat=>({cat,list:all.filter(e=>catOf(e.code)===cat)})).filter(g=>g.list.length);
+  if(chTab!=='all'&&!byCat.some(g=>g.cat.k===chTab))chTab='all';
+  chFlat=[];const card=(e,cat)=>{const i=chFlat.length;e.pages.forEach(p=>chFlat.push(p));const tag=chartIsPlanned(e.pages[0],code);
+    const kind=e.code==='IAP'?apKind(e.name.toUpperCase()):CH_KIND[e.code]||e.code;
+    return `<button type="button" class="chcard${tag?' plan':''}" style="--c:var(${cat.c})" data-i="${i}" title="${esc(e.name)}">
+      ${tag?`<span class="tg">${tag==='DIAGRAM'?'YOUR APT':'YOUR '+tag}</span>`:''}<span class="nm">${esc(e.name)}</span>
+      <span class="meta"><span class="kind">${esc(kind)}</span>${e.pages.length>1?`<span>${e.pages.length} pages</span>`:''}</span></button>`;};
+  const section=g=>{let inner='';
+    if(g.cat.k==='app'){const rw={};g.list.forEach(e=>{const m=e.name.match(/RWY\s+(\d{1,2}[LRC]?(?:\/\d{1,2}[LRC]?)?)/);const k=m?m[1]:'';(rw[k]=rw[k]||[]).push(e);});
+      Object.keys(rw).sort((a,b)=>(a?0:1)-(b?0:1)||parseInt(a,10)-parseInt(b,10)||a.localeCompare(b)).forEach(k=>{inner+=`<div class="chsub">${k?'Runway '+esc(k):'Circling and other'}</div><div class="chcards">${rw[k].map(e=>card(e,g.cat)).join('')}</div>`;});}
+    else inner=`<div class="chcards">${g.list.map(e=>card(e,g.cat)).join('')}</div>`;
+    return `<section class="chsec" style="--c:var(${g.cat.c})"><header><i></i><h3>${esc(g.cat.label)}</h3><em>${g.list.length}</em></header>${inner}</section>`;};
+  const shown=byCat.filter(g=>chTab==='all'||g.cat.k===chTab);
   const links=`<a href="https://www.airnav.com/airport/${encodeURIComponent(code)}" target="_blank" rel="noopener">Airport info and frequencies</a><a href="https://skyvector.com/airport/${encodeURIComponent(d.ident||code)}" target="_blank" rel="noopener">SkyVector</a><a href="https://notams.aim.faa.gov/notamSearch/nsapp.html#/" target="_blank" rel="noopener">NOTAMs</a>`;
-  body.innerHTML=`<div class="chhead"><b>${esc(code)}</b><span>${esc(d.name||'')} · FAA cycle ${esc(d.cycle)} · ${d.charts.length} charts</span><span class="links">${links}</span></div>
-    <div class="chfilter"><label class="sr" for="chFilter">Filter charts</label><input id="chFilter" placeholder="Filter, e.g. ILS 28R or SERFR" value="${esc(q)}"></div>
-    <div class="chgroups">${groups.map(([k,l,list])=>`<div class="chg"><h3>${esc(l)}</h3><div class="chlist">${list.map(c=>{const i=chFlat.indexOf(c),tag=chartIsPlanned(c,code);
-      return `<button type="button" class="chi${tag?' plan':''}" data-i="${i}" title="${esc(c[1])}">${tag?`<span class="tg">${tag==='DIAGRAM'?'APT':tag}</span>`:''}<span class="nm">${esc(c[1])}</span></button>`;}).join('')}</div></div>`).join('')||'<div class="wxempty">No charts match.</div>'}</div>`;
+  body.innerHTML=`<div class="chhead"><b>${esc(code)}</b><span>${esc(d.name||'')} · FAA cycle ${esc(d.cycle)} · ${d.charts.length} pages</span><span class="links">${links}</span></div>
+    <div class="chbar"><div class="chtabs" role="tablist" aria-label="Chart types">
+      <button type="button" class="chtab${chTab==='all'?' on':''}" style="--c:var(--ink)" data-tab="all" role="tab" aria-selected="${chTab==='all'}">All <em>${all.length}</em></button>
+      ${byCat.map(g=>`<button type="button" class="chtab${chTab===g.cat.k?' on':''}" style="--c:var(${g.cat.c})" data-tab="${g.cat.k}" role="tab" aria-selected="${chTab===g.cat.k}"><i></i>${esc(g.cat.label)} <em>${g.list.length}</em></button>`).join('')}
+    </div><label class="sr" for="chFilter">Filter charts</label><input id="chFilter" placeholder="Filter, e.g. ILS 28R or SERFR" value="${esc(prevQ)}"></div>
+    <div class="chgroups">${shown.map(section).join('')||'<div class="wxempty">No charts match.</div>'}</div>`;
   const f=$('chFilter');f.oninput=()=>{const pos=f.selectionStart;renderCharts();const g=$('chFilter');g.focus();g.setSelectionRange(pos,pos);};
-  body.querySelectorAll('.chi').forEach(b=>b.onclick=()=>openChart(+b.dataset.i));
+  body.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{chTab=b.dataset.tab;renderCharts();});
+  body.querySelectorAll('.chcard').forEach(b=>b.onclick=()=>openChart(+b.dataset.i));
   renderChQuick(chCur.code);}
 function openChart(i){if(!chCur||!chFlat[i])return;chPos=i;const c=chFlat[i],url=chCur.base+encodeURIComponent(c[2]);
-  $('chvTitle').textContent=chCur.code+' · '+c[1];$('chvSub').textContent=`${(CH_GROUPS.find(g=>g[0]===c[0])||['','Chart'])[1]} · ${i+1} of ${chFlat.length}`;
+  $('chvTitle').textContent=chCur.code+' · '+c[1];$('chvSub').textContent=`${catOf(c[0]).label} · page ${i+1} of ${chFlat.length}`;
   $('chvFrame').src=url;$('chvOpen').href=url;$('chView').hidden=false;$('chvClose').focus();}
 function closeChart(){$('chView').hidden=true;$('chvFrame').src='about:blank';}
 $('chvClose').onclick=closeChart;$('chvPrev').onclick=()=>openChart((chPos-1+chFlat.length)%chFlat.length);$('chvNext').onclick=()=>openChart((chPos+1)%chFlat.length);
