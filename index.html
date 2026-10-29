@@ -490,9 +490,7 @@ tfoot td{font-weight:500;border-bottom:0;color:var(--muted)}
             <label for="base">Map
               <select id="base">
                 <option value="topo">Topo</option>
-                <option value="relief">Shaded relief</option>
                 <option value="sat">Satellite</option>
-                <option value="dark">Dark relief</option>
               </select>
             </label>
             <label for="alertOn"><input type="checkbox" id="alertOn" checked> Terrain alert</label>
@@ -807,9 +805,7 @@ const map=L.map('map',{zoomControl:true,worldCopyJump:true,maxZoom:18}).setView(
 const ESRI='https://server.arcgisonline.com/ArcGIS/rest/services/';
 const bases={
   topo:L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',{maxZoom:17,subdomains:'abc',attribution:'Map © OpenStreetMap contributors, SRTM · style © OpenTopoMap (CC-BY-SA)'}),
-  relief:L.tileLayer(ESRI+'World_Shaded_Relief/MapServer/tile/{z}/{y}/{x}',{maxNativeZoom:13,maxZoom:17,attribution:'Tiles © Esri'}),
-  sat:L.tileLayer(ESRI+'World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:18,attribution:'Imagery © Esri, Maxar, Earthstar Geographics'}),
-  dark:L.tileLayer('https://services.arcgisonline.com/arcgis/rest/services/Elevation/World_Hillshade_Dark/MapServer/tile/{z}/{y}/{x}',{maxNativeZoom:16,maxZoom:17,attribution:'Tiles © Esri'})
+  sat:L.tileLayer(ESRI+'World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:18,attribution:'Imagery © Esri, Maxar, Earthstar Geographics'})
 };
 let base=bases.topo.addTo(map);
 try{const b=localStorage.getItem('routedesk.base1');if(b&&bases[b]){$('base').value=b;map.removeLayer(base);base=bases[b].addTo(map);}}catch(e){}
@@ -2238,7 +2234,7 @@ addEventListener('hashchange',()=>showView(location.hash==='#map'?'map':'plan'))
 
 
 /* ---------- tell the person when a newer version is published ---------- */
-const APP_VERSION='2026-10-29.7';
+const APP_VERSION='2026-10-29.8';
 async function checkForUpdate(){try{const t=await (await fetch(location.pathname+'?v='+Date.now(),{cache:'no-store'})).text();
   const m=t.match(/APP_VERSION='([^']+)'/);if(m&&m[1]!==APP_VERSION)toast('A newer version of Route Desk is available',false,{label:'Reload',fn:()=>location.reload(),ms:60000});}catch(e){}}
 setTimeout(checkForUpdate,8000);setInterval(checkForUpdate,10*60000);
