@@ -1149,6 +1149,7 @@ function matchRw(k,rw){if(!rw)return false;k=String(k||'').toUpperCase();if(k===
   const n=k.replace(/^RW/,''),r=normRwy(rw),base=r.replace(/[LRC]$/,'');
   if(/B$/.test(n))return base===normRwy(n.slice(0,-1));if(/^\d+$/.test(n))return base===normRwy(n);return normRwy(n)===r;}
 const sidFits=(p,rw)=>!rw||!Object.keys(p.rw).length||Object.keys(p.rw).some(k=>matchRw(k,rw));
+const starFits=sidFits; // a STAR with runway transitions only serves those runways
 const appFits=(a,rw)=>!rw||!a.rw||normRwy(a.rw)===normRwy(rw);
 function consText(ad,a1,a2,spd){
   const f=v=>v>=18000?'FL'+Math.round(v/100):String(v);let t='';
@@ -1189,6 +1190,11 @@ function rebuild(){
   const dstPos=dstEnd?dstEnd.land:dstApt?{lat:dstApt.lat,lon:dstApt.lon}:srcDst?src.wps[src.wps.length-1].pos:null;
   if(!depPos)throw new Error('Departure airport '+s.dep+" isn't in the airport list.");
   if(!dstPos)throw new Error('Arrival airport '+s.arr+" isn't in the airport list.");
+  plan.procNote='';
+  {const dEnd=findEnd(depApt,s.depRwy),aEnd=findEnd(dstApt,s.arrRwy);
+   const sd=dp&&s.sid?dp.sid.find(x=>x.id===s.sid):null,st=ap&&s.star?ap.star.find(x=>x.id===s.star):null;
+   if(sd&&dEnd&&!sidFits(sd,dEnd.id)){plan.procNote=`${sd.id} doesn't serve runway ${dEnd.id}, so it was removed.`;s.sid='';s.sidTr='';}
+   if(st&&aEnd&&!starFits(st,aEnd.id)){plan.procNote+=(plan.procNote?' ':'')+`${st.id} doesn't serve runway ${aEnd.id}, so it was removed. Pick a STAR or use Find route again.`;s.star='';s.starTr='';}}
   const sidObj=dp&&s.sid?dp.sid.find(x=>x.id===s.sid):null, starObj=ap&&s.star?ap.star.find(x=>x.id===s.star):null;
   // enroute part of the imported plan
   let mid=plan.direct?[]:plan.userRoute?plan.userRoute.map(p=>({...p,seg:'ENR',segName:'Enroute'})):src?src.wps.slice(1,-1).map(p=>({...p,seg:'ENR',segName:'Enroute'})):[];
@@ -1273,8 +1279,8 @@ function renderSetup(){
   else{sidSel.innerHTML=opts([],'',dp===undefined?loading:none);sidSel.disabled=true;sidTr.innerHTML=opts([],'','Transition');sidTr.disabled=true;}
   // STAR
   const starSel=$('starSel'),starTr=$('starTrSel');
-  if(ap){const list=ap.star.map(p=>[p.id,p.id+(p.rnav?' (RNAV)':'')]);
-    starSel.innerHTML=opts(list,s.star,list.length?'No STAR':'No STARs');starSel.value=s.star||'';starSel.disabled=false;
+  if(ap){const list=ap.star.filter(p=>starFits(p,plan.dstRwy)).map(p=>[p.id,p.id+(p.rnav?' (RNAV)':'')]);
+    starSel.innerHTML=opts(list,s.star,list.length?'No STAR':(ap.star.length?'No STARs for this runway':'No STARs'));starSel.value=s.star||'';starSel.disabled=false;
     const o=plan.starObj;starTr.innerHTML=o?opts(Object.keys(o.tr).map(t=>[t,t]),s.starTr,Object.keys(o.tr).length?'No transition':'No transitions'):opts([],'','Transition');
     starTr.value=s.starTr||'';starTr.disabled=!o||!Object.keys(o.tr).length;}
   else{starSel.innerHTML=opts([],'',ap===undefined?loading:none);starSel.disabled=true;starTr.innerHTML=opts([],'','Transition');starTr.disabled=true;}
@@ -1314,12 +1320,14 @@ function renderStrip(){
   el.innerHTML=h.join('');
   $('stripHint').textContent=plan.wps.length+' fixes · altitude and speed restrictions under each fix';
 }
+let lastProcNote='';
 function applySetup(fit){
   try{rebuild();}catch(err){toast(err.message,true);return false;}
   ensureOsmRunways(aptByCode(plan.setup.dep));ensureOsmRunways(aptByCode(plan.setup.arr));ensureProcs(plan.setup.dep);ensureProcs(plan.setup.arr);
   prefetchAirport(plan.setup.dep);prefetchAirport(plan.setup.arr);
   selected=-1;terrain=null;$('sTer').textContent='—';$('sClr').textContent='—';$('sClr').className='v';
-  render();drawRoute(fit);refreshPlannedRunways();loadTerrain();persist();if(typeof markPreview==='function')markPreview();return true;
+  render();drawRoute(fit);refreshPlannedRunways();loadTerrain();persist();if(typeof markPreview==='function')markPreview();
+  if(plan.procNote&&plan.procNote!==lastProcNote){lastProcNote=plan.procNote;toast(plan.procNote,true);}else if(!plan.procNote)lastProcNote='';return true;
 }
 function touched(){if(plan&&plan.sample){plan.sample=false;plan._key='new:'+Date.now();$('sampleBadge').hidden=true;}}
 wireSearch('depInput','depAc',()=>plan?plan.depId:'',code=>setDep(code));
@@ -1362,7 +1370,7 @@ function previewData(kind){
       sets.forEach(rl=>{if(trs.length)trs.forEach(t=>br.push({tr:t,legs:[...rl,...p.cm,...p.tr[t]]}));else br.push({tr:'',legs:[...rl,...p.cm]});});
       return {id:p.id,label:p.id+(p.rnav?' RNAV':''),branches:br,start:plan.depEnd?plan.depEnd.thr:null,ntr:trs.length};})};}
   const pd=getProcs(s.arr);if(!pd)return null;const rw=plan.dstRwy;
-  if(kind==='star')return {pd,title:'STARs · '+plan.dstId+(rw?' RWY '+rw:''),items:pd.star.map(p=>{
+  if(kind==='star')return {pd,title:'STARs · '+plan.dstId+(rw?' RWY '+rw:''),items:pd.star.filter(p=>starFits(p,rw)).map(p=>{
       const rk=rw?Object.keys(p.rw).find(k=>matchRw(k,rw)):null,rl=rk?p.rw[rk]:[],trs=Object.keys(p.tr);
       return {id:p.id,label:p.id+(p.rnav?' RNAV':''),ntr:trs.length,branches:trs.length?trs.map(t=>({tr:t,legs:[...p.tr[t],...p.cm,...rl]})):[{tr:'',legs:[...p.cm,...rl]}]};})};
   const apt=aptByCode(s.arr);
@@ -1547,7 +1555,7 @@ async function routeContext(){
       if(n)starts.push({n,d,c:d+pc,sid:p.id,tr:v.tr,pt:ex});
       else nearPool(poolA,ex,150).forEach(([m,dd])=>starts.push({n:m,d:d+dd,c:d+dd*1.05+pc+5,sid:p.id,tr:v.tr,pt:ex,dct:true}));
       sidExits.push({d,c:d+pc,sid:p.id,tr:v.tr,pt:ex});});});
-  if(useProcs&&ap)ap.star.forEach(p=>{const rk=plan.dstRwy?Object.keys(p.rw).find(k=>matchRw(k,plan.dstRwy)):Object.keys(p.rw)[0];
+  if(useProcs&&ap)ap.star.filter(p=>starFits(p,plan.dstRwy)).forEach(p=>{const rk=plan.dstRwy?Object.keys(p.rw).find(k=>matchRw(k,plan.dstRwy)):Object.keys(p.rw)[0];
     const tail=[...p.cm,...(rk?p.rw[rk]:[])],trs=Object.keys(p.tr);
     (trs.length?trs.map(t=>({tr:t,legs:[...p.tr[t],...tail]})):[{tr:'',legs:tail}]).forEach(v=>{const pts=pathPts(v.legs,ap,null,B),id=fixAt(v.legs,ap,false);if(!id||pts.length<2)return;
       const en=pts[0],d=lenOf(pts),pc=pen(p,v.legs,false),n=nodeAt(id,en);
@@ -1985,7 +1993,7 @@ addEventListener('hashchange',()=>showView(location.hash==='#map'?'map':'plan'))
 
 
 /* ---------- tell the person when a newer version is published ---------- */
-const APP_VERSION='2026-10-29.1';
+const APP_VERSION='2026-10-29.2';
 async function checkForUpdate(){try{const t=await (await fetch(location.pathname+'?v='+Date.now(),{cache:'no-store'})).text();
   const m=t.match(/APP_VERSION='([^']+)'/);if(m&&m[1]!==APP_VERSION)toast('A newer version of Route Desk is available',false,{label:'Reload',fn:()=>location.reload(),ms:60000});}catch(e){}}
 setTimeout(checkForUpdate,8000);setInterval(checkForUpdate,10*60000);
