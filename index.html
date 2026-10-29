@@ -269,6 +269,32 @@ td.cons{color:var(--accent)}
 .wxpop{font:400 12px var(--f-body);min-width:220px}
 .wxpop b{font:700 14px var(--f-mono)}
 .wxpop .wxraw{margin-top:6px}
+.chq{display:flex;gap:4px}
+.chq button{font:600 12px var(--f-mono);border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:5px;padding:5px 8px;cursor:pointer}
+.chq button.on{border-color:var(--route);color:var(--route)}
+.chhead{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 12px;padding:10px 12px;border-bottom:1px solid var(--line)}
+.chhead b{font:700 18px var(--f-mono);letter-spacing:.04em}
+.chhead span{color:var(--muted);font-size:12.5px}
+.chhead .links{margin-left:auto;display:flex;gap:10px;font-size:12px}
+.chhead .links a{color:var(--accent)}
+.chfilter{padding:8px 12px;border-bottom:1px solid var(--line)}
+.chfilter input{width:100%;font:500 13px var(--f-body);padding:6px 8px;border:1px solid var(--line);border-radius:5px;background:var(--bg);color:var(--ink)}
+.chgroups{max-height:520px;overflow-y:auto}
+.chg{padding:6px 12px 10px}
+.chg h3{font:600 10px var(--f-body);letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin:6px 0 4px}
+.chlist{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:4px 10px}
+.chi{display:flex;align-items:center;gap:6px;text-align:left;border:1px solid transparent;background:none;color:var(--ink);font:500 12.5px var(--f-mono);padding:5px 6px;border-radius:5px;cursor:pointer;min-width:0}
+.chi:hover{border-color:var(--line);background:var(--bg)}
+.chi.plan{border-color:var(--route);background:var(--route-soft)}
+.chi .tg{flex:none;font:700 9.5px var(--f-body);letter-spacing:.06em;color:#fff;background:var(--route);padding:1px 5px;border-radius:3px}
+.chi .nm{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chview{position:fixed;inset:0;z-index:2500;background:var(--bg);display:flex;flex-direction:column;padding-top:env(safe-area-inset-top,0px)}
+.chvbar{display:flex;align-items:center;gap:8px;padding:8px max(12px,env(safe-area-inset-left,0px));border-bottom:1px solid var(--line);background:var(--panel);flex-wrap:wrap}
+.chvbar .btn{padding:6px 12px;text-decoration:none}
+.chvt{flex:1;min-width:0;display:flex;flex-direction:column}
+.chvt b{font:700 15px var(--f-mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chvt span{font-size:12px;color:var(--muted)}
+#chvFrame{flex:1;border:0;width:100%;background:#fff}
 .appinfo{padding:8px 12px;border-bottom:1px solid var(--line);font:400 11.5px var(--f-mono);color:var(--muted);line-height:1.5}
 .appinfo b{color:var(--route);font-weight:600}
 .appinfo:empty{display:none}
@@ -469,6 +495,16 @@ tfoot td{font-weight:500;border-bottom:0;color:var(--muted)}
         <div class="ph"><h2>Vertical profile · terrain within 5 nm</h2><span class="hint" id="profHint">Loading terrain…</span></div>
         <div class="profbox"><canvas id="prof"></canvas></div>
       </section>
+      <section class="panel" id="chartsPanel">
+        <div class="ph"><h2>Charts</h2>
+          <div class="wxtools">
+            <span class="chq" id="chQuick"></span>
+            <label for="chLook" class="sr">Airport</label><input id="chLook" maxlength="4" placeholder="ICAO" autocomplete="off" spellcheck="false">
+            <button type="button" class="btn" id="chLookBtn">Show charts</button>
+          </div>
+        </div>
+        <div id="chBody"><div class="wxempty">Pick an airport to see its charts.</div></div>
+      </section>
     </div>
 
     <div class="col">
@@ -564,6 +600,16 @@ tfoot td{font-weight:500;border-bottom:0;color:var(--muted)}
   <p class="foot">Export a plan from the MSFS 2024 world map (or SimBrief) as a .pln, then import it, drop it on this page, or paste the XML. Plans are saved in this browser only. Terrain comes from public elevation data at roughly 100–600 m resolution depending on route length, so treat clearance numbers as a planning guide. Tracks are true, not magnetic. For flight-sim use only.</p>
 </div>
 <div class="drop" id="drop" hidden>Drop .pln to load</div>
+<div class="chview" id="chView" hidden role="dialog" aria-modal="true" aria-labelledby="chvTitle">
+  <div class="chvbar">
+    <button type="button" class="btn" id="chvPrev" aria-label="Previous chart">‹</button>
+    <div class="chvt"><b id="chvTitle"></b><span id="chvSub"></span></div>
+    <button type="button" class="btn" id="chvNext" aria-label="Next chart">›</button>
+    <a class="btn" id="chvOpen" href="#" target="_blank" rel="noopener">Open in new tab</a>
+    <button type="button" class="btn primary" id="chvClose">Close</button>
+  </div>
+  <iframe id="chvFrame" title="Chart"></iframe>
+</div>
 
 <script>
 (function(){
@@ -726,6 +772,7 @@ function render(){
   $('tDist').textContent=Math.round(plan.total);$('tEte').textContent=fmtEte(ete);
   if(terrain)applyTerrain();else{renderLog();drawProf();}
   renderPlanner();renderWx();
+  if(chCur)renderCharts();else if(typeof renderChQuick==='function'){renderChQuick('');if(!chAuto&&plan.depId){chAuto=true;showCharts(plan.depId);}}
 }
 function renderLog(){
   const gs=+$('gs').value||1;
@@ -2175,7 +2222,7 @@ addEventListener('hashchange',()=>showView(location.hash==='#map'?'map':'plan'))
 
 
 /* ---------- tell the person when a newer version is published ---------- */
-const APP_VERSION='2026-10-29.4';
+const APP_VERSION='2026-10-29.5';
 async function checkForUpdate(){try{const t=await (await fetch(location.pathname+'?v='+Date.now(),{cache:'no-store'})).text();
   const m=t.match(/APP_VERSION='([^']+)'/);if(m&&m[1]!==APP_VERSION)toast('A newer version of Route Desk is available',false,{label:'Reload',fn:()=>location.reload(),ms:60000});}catch(e){}}
 setTimeout(checkForUpdate,8000);setInterval(checkForUpdate,10*60000);
@@ -2190,6 +2237,58 @@ $('fAppType').addEventListener('change',e=>setAppType(e.target.value));
 $('wxLookBtn').onclick=lookupWx;$('wxLook').addEventListener('keydown',e=>{if(e.key==='Enter')lookupWx();});
 $('wxRef').onclick=()=>{loadWx(true);};
 setInterval(()=>{if(plan&&!$('mapView').hidden)loadWx(false).then(()=>renderWx());},5*60000);
+
+
+/* ---------- charts (FAA d-TPP, US airports) ---------- */
+let chAuto=false,chIndex=null,chIndexP=null,chCur=null,chFlat=[],chPos=-1;const chCache=new Map();
+function loadChIndex(){if(!chIndexP)chIndexP=fetch('data/charts/index.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(d=>chIndex=d).catch(()=>null);return chIndexP;}
+const CH_GROUPS=[['APD','Airport diagram'],['HOT','Hot spots'],['LAH','Land and hold short'],['MIN','Takeoff and alternate minimums'],['DP','Departures (SIDs)'],['ODP','Obstacle departures'],['STR','Arrivals (STARs)'],['IAP','Approaches'],['','Other']];
+const NUMW=['ZERO','ONE','TWO','THREE','FOUR','FIVE','SIX','SEVEN','EIGHT','NINE','TEN','ELEVEN','TWELVE'];
+function procChartName(id){const m=String(id||'').match(/^([A-Z]+)(\d{1,2})$/);return m?m[1]+' '+(NUMW[+m[2]]||m[2]):'';}
+function chartIsPlanned(c,code){
+  if(!plan)return '';const name=c[1].toUpperCase(),s=plan.setup;
+  if(code===plan.depId&&c[0]==='DP'&&plan.sidObj&&name.startsWith(procChartName(plan.sidObj.id)))return 'SID';
+  if(code===plan.dstId&&c[0]==='STR'&&plan.starObj&&name.startsWith(procChartName(plan.starObj.id)))return 'STAR';
+  if(code===plan.dstId&&c[0]==='IAP'&&plan.appObj){const a=plan.appObj,rw=String(a.rw||'').replace(/^0/,''),suf=(a.name.match(/ ([A-Z]) \d/)||[])[1]||'';
+    const fam=/^ILS/.test(a.name)?/\bILS\b/:/^LOC/.test(a.name)?/\bLOC\b/:/RNP/.test(a.name)?/RNAV \(RNP\)/:/^RNAV|^GPS/.test(a.name)?/RNAV \(GPS\)|\bGPS\b/:/^VOR/.test(a.name)?/\bVOR\b/:/^NDB/.test(a.name)?/\bNDB\b/:null;
+    if(fam&&fam.test(name)&&rw&&new RegExp('RWY 0?'+rw+'\\b').test(name)&&(!suf||new RegExp('\\b'+suf+' RWY').test(name)))return 'APP';}
+  if((code===plan.depId||code===plan.dstId)&&c[0]==='APD')return 'DIAGRAM';
+  return '';}
+async function showCharts(code){
+  code=String(code||'').toUpperCase().trim();if(!code)return;
+  const body=$('chBody');body.innerHTML='<div class="wxempty">Loading charts…</div>';
+  const idx=await loadChIndex();
+  if(!idx){body.innerHTML='<div class="wxempty">The chart list is still being built for the first time. Try again in a few minutes.</div>';return;}
+  const a=aptByCode(code);let key=[code,a&&a.code.toUpperCase(),idx.alias[code],/^K[A-Z0-9]{3}$/.test(code)?code.slice(1):'','K'+code].find(k=>k&&idx.airports[k]);
+  if(key&&!idx.airports[key]&&idx.alias[key])key=idx.alias[key];
+  chCur=null;renderChQuick(code);
+  if(!key){body.innerHTML=`<div class="wxempty"><b>${esc(code)}</b>: no FAA charts. Free official charts are available for US airports only.${a?` ${esc(a.name)} is in ${esc(a.country)}.`:''}</div>`;return;}
+  let d=chCache.get(key);if(!d){try{d=await (await fetch('data/charts/'+encodeURIComponent(key)+'.json',{cache:'no-cache'})).json();chCache.set(key,d);}catch(e){body.innerHTML="<div class=\"wxempty\">Couldn't load the chart list. Check your connection.</div>";return;}}
+  chCur={code:a?a.code.toUpperCase():key,key,d,base:idx.base};renderCharts();}
+function renderChQuick(active){const el=$('chQuick');if(!plan){el.innerHTML='';return;}
+  const ids=[['Dep',plan.depId],['Arr',plan.dstId],['Altn',plan.brief&&plan.brief.altn]].filter(x=>x[1]);
+  el.innerHTML=ids.map(([r,id])=>`<button type="button" data-ch="${esc(id)}" class="${id===active?'on':''}" title="${r}">${esc(id)}</button>`).join('');
+  el.querySelectorAll('[data-ch]').forEach(b=>b.onclick=()=>showCharts(b.dataset.ch));}
+function renderCharts(){
+  if(!chCur)return;const {d,base,code}=chCur,q=($('chFilter')&&$('chFilter').value||'').trim().toUpperCase(),body=$('chBody');
+  const groups=CH_GROUPS.map(([k,l])=>[k,l,d.charts.filter(c=>(k?c[0]===k:!CH_GROUPS.some(g=>g[0]&&g[0]===c[0]))&&(!q||c[1].toUpperCase().includes(q)))]).filter(g=>g[2].length);
+  chFlat=[];groups.forEach(g=>g[2].forEach(c=>chFlat.push(c)));
+  const links=`<a href="https://www.airnav.com/airport/${encodeURIComponent(code)}" target="_blank" rel="noopener">Airport info and frequencies</a><a href="https://skyvector.com/airport/${encodeURIComponent(d.ident||code)}" target="_blank" rel="noopener">SkyVector</a><a href="https://notams.aim.faa.gov/notamSearch/nsapp.html#/" target="_blank" rel="noopener">NOTAMs</a>`;
+  body.innerHTML=`<div class="chhead"><b>${esc(code)}</b><span>${esc(d.name||'')} · FAA cycle ${esc(d.cycle)} · ${d.charts.length} charts</span><span class="links">${links}</span></div>
+    <div class="chfilter"><label class="sr" for="chFilter">Filter charts</label><input id="chFilter" placeholder="Filter, e.g. ILS 28R or SERFR" value="${esc(q)}"></div>
+    <div class="chgroups">${groups.map(([k,l,list])=>`<div class="chg"><h3>${esc(l)}</h3><div class="chlist">${list.map(c=>{const i=chFlat.indexOf(c),tag=chartIsPlanned(c,code);
+      return `<button type="button" class="chi${tag?' plan':''}" data-i="${i}" title="${esc(c[1])}">${tag?`<span class="tg">${tag==='DIAGRAM'?'APT':tag}</span>`:''}<span class="nm">${esc(c[1])}</span></button>`;}).join('')}</div></div>`).join('')||'<div class="wxempty">No charts match.</div>'}</div>`;
+  const f=$('chFilter');f.oninput=()=>{const pos=f.selectionStart;renderCharts();const g=$('chFilter');g.focus();g.setSelectionRange(pos,pos);};
+  body.querySelectorAll('.chi').forEach(b=>b.onclick=()=>openChart(+b.dataset.i));
+  renderChQuick(chCur.code);}
+function openChart(i){if(!chCur||!chFlat[i])return;chPos=i;const c=chFlat[i],url=chCur.base+encodeURIComponent(c[2]);
+  $('chvTitle').textContent=chCur.code+' · '+c[1];$('chvSub').textContent=`${(CH_GROUPS.find(g=>g[0]===c[0])||['','Chart'])[1]} · ${i+1} of ${chFlat.length}`;
+  $('chvFrame').src=url;$('chvOpen').href=url;$('chView').hidden=false;$('chvClose').focus();}
+function closeChart(){$('chView').hidden=true;$('chvFrame').src='about:blank';}
+$('chvClose').onclick=closeChart;$('chvPrev').onclick=()=>openChart((chPos-1+chFlat.length)%chFlat.length);$('chvNext').onclick=()=>openChart((chPos+1)%chFlat.length);
+addEventListener('keydown',e=>{if($('chView').hidden)return;if(e.key==='Escape')closeChart();else if(e.key==='ArrowLeft')$('chvPrev').click();else if(e.key==='ArrowRight')$('chvNext').click();});
+$('chLookBtn').onclick=()=>{const v=$('chLook').value;if(!/^[A-Za-z0-9]{3,4}$/.test(v.trim())){toast('Enter an airport code, like KLAX.',true);return;}showCharts(v);$('chLook').value='';};
+$('chLook').addEventListener('keydown',e=>{if(e.key==='Enter')$('chLookBtn').click();});
 
 /* ---------- sample plan (example data, KSEA–KSFO via V23) ---------- */
 function dms(v,pos,neg){const s=v<0?neg:pos;v=Math.abs(v);const d=Math.floor(v),mf=(v-d)*60,m=Math.floor(mf),sec=((mf-m)*60).toFixed(2);return `${s}${d}° ${m}' ${sec}"`;}
