@@ -793,6 +793,7 @@ const C_APT={apron:'#8f969d',bldg:'#56626e',pave:'#6a7077',rwy:'#2f3439',cl:'#f2
 function pxPerMeter(lat,z){return 256*Math.pow(2,z)/(40075016.686*Math.cos(lat*D2R));}
 function mDist(a,b){return gcDist({lat:a[0],lon:a[1]},{lat:b[0],lon:b[1]})*1852;}
 function parseWidth(t,def){const v=parseFloat(t);if(!isFinite(v)||v<=0)return def;return /ft|'/.test(t)?v*0.3048:v;}
+const padRwy=id=>{const m=String(id||'').toUpperCase().trim().match(/^0?(\d{1,2})([LRCW]?)$/);return m?('0'+m[1]).slice(-2)+m[2]:String(id||'').toUpperCase();};
 const normRwy=s=>String(s||'').toUpperCase().replace(/^0+/,'').replace(/[^0-9LRCW]/g,'');
 
 // ask the OSM servers in turn (staggered), use the first good answer, give up on a server after 25 s
@@ -811,7 +812,7 @@ async function overpass(b){
 const localRw=new Map();
 function drawLocalRunways(apt){
   if(!apt||localRw.has(apt.code))return;const used=new Set(),layers=[],entries=[];
-  apt.ends.forEach(e=>{if(used.has(e))return;const o=apt.ends.find(x=>x!==e&&!used.has(x)&&gcDist(x.thr,e.opp)<0.3);used.add(e);if(o)used.add(o);
+  apt.ends.forEach(e=>{if(used.has(e))return;const o=e.pair&&!used.has(e.pair)?e.pair:null;used.add(e);if(o)used.add(o);
     const g=[[e.thr.lat,e.thr.lon],[e.opp.lat,e.opp.lon]],w=(e.wid||150)*0.3048,ref=o?e.id+'/'+o.id:e.id;
     const poly=L.polygon(runwayPolygon(g,w),{renderer:R.rwy,color:'#1c2024',weight:1,fillColor:C_APT.rwy,fillOpacity:.97}).addTo(aptLayer);
     poly.bindTooltip(`RWY ${esc(ref)}${e.len?' · '+e.len.toLocaleString()+' ft':''}${e.surf?' · '+esc(e.surf):''}`,{sticky:true});
@@ -1055,12 +1056,12 @@ function aptObj(r){
   if(r._o)return r._o;
   const a={code:r[0],name:r[1],city:r[2],country:r[3],lat:r[4],lon:r[5],elev:r[6]??0,type:r[7],iata:r[8],ends:[]},ctr={lat:a.lat,lon:a.lon};
   r[10].forEach(w=>{const len=w[2],A={lat:w[6],lon:w[7]},B={lat:w[11],lon:w[12]};
-    const mk=(id,t,o,elev,hdg,dthr)=>{if(!id)return;const num=parseInt(id,10);
-      let course=(t.lat!=null&&o.lat!=null)?gcBrg(t,o):(hdg!=null?hdg:(num?num*10%360:null));if(course==null)return;
+    const mk=(id,t,o,elev,hdg,dthr)=>{if(!id)return null;id=padRwy(id);const num=parseInt(id,10);
+      let course=(t.lat!=null&&o.lat!=null)?gcBrg(t,o):(hdg!=null?hdg:(num?num*10%360:null));if(course==null)return null;
       const half=(len||5000)/2/6076.12;
       const thr=t.lat!=null?{lat:t.lat,lon:t.lon}:gcDest(ctr,course+180,half), opp=o.lat!=null?{lat:o.lat,lon:o.lon}:gcDest(ctr,course,half);
-      a.ends.push({id,len,wid:w[3],surf:w[4],lit:w[5],thr,opp,course,land:dthr?gcDest(thr,course,dthr/6076.12):thr,elev:elev??a.elev,approx:t.lat==null});};
-    mk(w[0],A,B,w[8],w[9],w[10]);mk(w[1],B,A,w[13],w[14],w[15]);});
+      const e={id,len,wid:w[3],surf:w[4],lit:w[5],thr,opp,course,land:dthr?gcDest(thr,course,dthr/6076.12):thr,elev:elev??a.elev,approx:t.lat==null};a.ends.push(e);return e;};
+    const e1=mk(w[0],A,B,w[8],w[9],w[10]),e2=mk(w[1],B,A,w[13],w[14],w[15]);if(e1&&e2){e1.pair=e2;e2.pair=e1;}});
   a.ends.sort((x,y)=>((parseInt(x.id,10)||99)-(parseInt(y.id,10)||99))||x.id.localeCompare(y.id));
   a.oaEnds=a.ends;
   return r._o=a;
@@ -1078,8 +1079,8 @@ function ensureOsmRunways(apt){
       let atA=parts[0],atB=parts[1]||null;if(atB&&diff(atB,brg)<diff(atA,brg)){atA=parts[1];atB=parts[0];}
       const lenFt=Math.round(gcDist(A,B)*6076.12),wFt=t.width?Math.round(parseWidth(t.width,45)*3.28084):null,surf=(t.surface||'').slice(0,12);
       const elevFor=id=>{const m=apt.oaEnds.find(e=>normRwy(e.id)===normRwy(id));return m?m.elev:apt.elev;};
-      ends.push({id:atA.toUpperCase(),len:lenFt,wid:wFt,surf,lit:0,thr:A,opp:B,land:A,course:brg,elev:elevFor(atA),src:'osm'});
-      if(atB)ends.push({id:atB.toUpperCase(),len:lenFt,wid:wFt,surf,lit:0,thr:B,opp:A,land:B,course:(brg+180)%360,elev:elevFor(atB),src:'osm'});});
+      const ea={id:padRwy(atA),len:lenFt,wid:wFt,surf,lit:0,thr:A,opp:B,land:A,course:brg,elev:elevFor(atA),src:'osm'};ends.push(ea);
+      if(atB){const eb={id:padRwy(atB),len:lenFt,wid:wFt,surf,lit:0,thr:B,opp:A,land:B,course:(brg+180)%360,elev:elevFor(atB),src:'osm',pair:ea};ea.pair=eb;ends.push(eb);}});
     if(!ends.length)return;
     const seen=new Set();apt.ends=ends.filter(e=>!seen.has(normRwy(e.id))&&seen.add(normRwy(e.id)))
       .sort((x,y)=>((parseInt(x.id,10)||99)-(parseInt(y.id,10)||99))||x.id.localeCompare(y.id));
@@ -1984,7 +1985,7 @@ addEventListener('hashchange',()=>showView(location.hash==='#map'?'map':'plan'))
 
 
 /* ---------- tell the person when a newer version is published ---------- */
-const APP_VERSION='2026-10-28.8';
+const APP_VERSION='2026-10-29.1';
 async function checkForUpdate(){try{const t=await (await fetch(location.pathname+'?v='+Date.now(),{cache:'no-store'})).text();
   const m=t.match(/APP_VERSION='([^']+)'/);if(m&&m[1]!==APP_VERSION)toast('A newer version of Route Desk is available',false,{label:'Reload',fn:()=>location.reload(),ms:60000});}catch(e){}}
 setTimeout(checkForUpdate,8000);setInterval(checkForUpdate,10*60000);
