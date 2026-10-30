@@ -421,6 +421,60 @@ tfoot td{font-weight:500;border-bottom:0;color:var(--muted)}
 
 .toast{position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--panel);padding:9px 14px;border-radius:6px;font-size:13px;z-index:2000;max-width:calc(100% - 32px)}
 .toast.err{background:var(--bad);color:#fff}
+.helpbtn{display:inline-flex;align-items:center;gap:6px;position:relative}
+.helpbtn .qmark{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:var(--accent);color:var(--accent-ink);font:700 12px var(--f-body)}
+.helpbtn .dot{position:absolute;top:-3px;right:-3px;width:9px;height:9px;border-radius:50%;background:var(--route);box-shadow:0 0 0 2px var(--panel)}
+.qi{display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border-radius:50%;border:1px solid var(--muted);background:transparent;color:var(--muted);font:700 9.5px var(--f-body);padding:0;margin-left:6px;cursor:pointer;vertical-align:middle;letter-spacing:0;text-transform:none;line-height:1}
+.qi:hover,.qi:focus-visible{border-color:var(--accent);color:var(--accent);outline:none}
+.hlp{position:fixed;inset:0;z-index:2400;background:rgba(5,9,12,.62);display:flex;align-items:center;justify-content:center;padding:16px}
+.hlpbox{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:12px;width:min(780px,100%);max-height:min(88vh,900px);display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.45);overflow:hidden}
+.hlphead{display:flex;align-items:center;gap:14px;padding:14px 18px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.hlphead h2{font:700 22px var(--f-display);letter-spacing:.05em;text-transform:uppercase;margin:0;flex:1 1 auto}
+.hlptabs{display:flex;gap:4px;background:var(--bg);padding:3px;border-radius:7px}
+.hlptabs button{border:0;background:transparent;color:var(--muted);font:600 12px var(--f-body);letter-spacing:.06em;text-transform:uppercase;padding:6px 12px;border-radius:5px;cursor:pointer}
+.hlptabs button.on{background:var(--panel);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.2)}
+.hlpx{border:0;background:transparent;color:var(--muted);font-size:24px;line-height:1;cursor:pointer;padding:0 4px}
+.hlpx:hover{color:var(--ink)}
+.hlpbody{overflow-y:auto;padding:16px 18px 20px;font:400 13.5px/1.6 var(--f-body)}
+.hlpbody a{color:var(--accent)}
+.hlpbody code{font:500 12px var(--f-mono);background:var(--bg);padding:1px 5px;border-radius:4px;word-break:break-all}
+.hlpintro{margin:0 0 14px;color:var(--muted)}
+.hstep{display:grid;grid-template-columns:34px minmax(0,1fr);gap:12px;padding:14px 0;border-top:1px solid var(--line)}
+.hstep:first-of-type{border-top:0;padding-top:4px}
+.hnum{width:30px;height:30px;border-radius:50%;border:2px solid var(--line);display:flex;align-items:center;justify-content:center;font:700 14px var(--f-body);color:var(--muted)}
+.hstep.done .hnum{background:#2f9e44;border-color:#2f9e44;color:#fff}
+.hstep h3{margin:4px 0 2px;font:600 15px var(--f-body)}
+.hstep .hst{font-size:12px;color:var(--muted);margin-bottom:8px}
+.hstep.done .hst{color:#2f9e44;font-weight:600}
+.hstep ol{margin:8px 0;padding-left:20px}
+.hstep li{margin:3px 0}
+.hrow{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:8px 0}
+.hrow input{font:600 17px var(--f-mono);letter-spacing:.12em;text-transform:uppercase;padding:6px 8px;border:1px solid var(--line);border-radius:5px;background:var(--bg);color:var(--ink);width:150px}
+.hdl{display:inline-flex;align-items:center;gap:8px;text-decoration:none}
+.hmsg{font-size:12.5px;padding:7px 10px;border-radius:6px;background:var(--bg);margin-top:6px}
+.hmsg.ok{color:#2f9e44}.hmsg.warn{color:var(--warn)}
+.hstep details{margin-top:8px;font-size:12.5px}
+.hstep summary{cursor:pointer;color:var(--accent)}
+.hpath{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:6px 10px;align-items:center;margin-top:8px}
+.hpath b{font-size:12px;white-space:nowrap}
+.hpath button{font:600 11px var(--f-body);padding:3px 8px}
+.hchk{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:var(--muted);cursor:pointer}
+.hnote{margin-top:16px;padding:10px 12px;border-radius:8px;background:var(--bg);font-size:12.5px;color:var(--muted)}
+.hnote b{color:var(--ink)}
+.faqs h4{font:700 11px var(--f-body);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:18px 0 6px}
+.faqs h4:first-child{margin-top:0}
+.faqs details{border:1px solid var(--line);border-radius:7px;margin:6px 0;background:var(--panel)}
+.faqs details[open]{border-color:var(--accent)}
+.faqs summary{cursor:pointer;padding:9px 12px;font-weight:600;list-style:none;display:flex;justify-content:space-between;gap:10px}
+.faqs summary::-webkit-details-marker{display:none}
+.faqs summary::after{content:'+';color:var(--muted);font-weight:700}
+.faqs details[open] summary::after{content:'–'}
+.faqs .a{padding:0 12px 10px;color:var(--ink)}
+.faqs .a p{margin:6px 0}
+.faqs .a ul,.faqs .a ol{margin:6px 0;padding-left:20px}
+.faqs details.flash{animation:hflash 1.6s ease-out}
+@keyframes hflash{0%{box-shadow:0 0 0 3px var(--accent)}100%{box-shadow:0 0 0 0 transparent}}
+@media (max-width:560px){.hlp{padding:0}.hlpbox{max-height:100vh;height:100%;border-radius:0}.hpath{grid-template-columns:minmax(0,1fr)}}
 .drop{position:fixed;inset:0;z-index:1900;background:color-mix(in srgb,var(--bg) 82%,transparent);display:flex;align-items:center;justify-content:center;border:3px dashed var(--route);font:700 28px var(--f-display);letter-spacing:.06em;text-transform:uppercase;color:var(--route)}
 [hidden]{display:none!important}
 .foot{font-size:12px;color:var(--muted);max-width:75ch;margin:0}
@@ -444,6 +498,7 @@ tfoot td{font-weight:500;border-bottom:0;color:var(--muted)}
       <label class="btn primary" for="file" tabindex="0" id="importBtn">Import .pln</label>
       <button class="btn" id="newFlight" type="button">New flight</button>
       <button class="btn" id="copyRoute" type="button">Copy route</button>
+      <button class="btn helpbtn" id="helpBtn" type="button" aria-label="Help and setup"><span class="qmark">?</span>Help<i class="dot" id="helpDot" hidden></i></button>
     </div>
   </header>
 
@@ -464,11 +519,11 @@ tfoot td{font-weight:500;border-bottom:0;color:var(--muted)}
       <div class="tabsteps">
         <b>Connect the in-game tablet (one time)</b>
         <ol>
-          <li><a href="downloads/routedesk-efb.zip">Download the tablet app</a>, unzip it into your MSFS 2024 <b>Community</b> folder and restart the sim.</li>
+          <li><a href="downloads/routedesk-efb.zip">Download the tablet app</a>, unzip it and double-click <b>Install Route Desk</b>. <a href="#" data-help="start">Step-by-step help</a></li>
           <li>Open <b>Route Desk</b> on the tablet and type the 8-character code it shows below.</li>
         </ol>
       </div>
-      <label for="tabCode">Tablet code<input id="tabCode" maxlength="9" placeholder="ABCD-EFGH" autocomplete="off" spellcheck="false"></label>
+      <label for="tabCode"><span>Tablet code<button type="button" class="qi" data-faq="code" aria-label="Help: tablet code">?</button></span><input id="tabCode" maxlength="9" placeholder="ABCD-EFGH" autocomplete="off" spellcheck="false"></label>
       <button type="button" class="btn primary" id="tabSend">Save and send</button>
       <button type="button" class="btn" id="tabCancel">Cancel</button>
     </div>
@@ -514,7 +569,7 @@ tfoot td{font-weight:500;border-bottom:0;color:var(--muted)}
           </div>
           <label class="ffull" for="fRoute">Route<textarea id="fRoute" rows="3" spellcheck="false" placeholder="SSTIK5.KAYEX BCE J60 ... BLAID2"></textarea></label>
           <div class="rbar">
-            <label class="chk" for="fProcs"><input type="checkbox" id="fProcs"> Use SIDs and STARs</label>
+            <label class="chk" for="fProcs"><input type="checkbox" id="fProcs"> Use SIDs and STARs</label><button type="button" class="qi" data-faq="procs" aria-label="Help: SIDs and STARs">?</button>
             <button type="button" class="btn primary" id="fFind">Find route</button>
             <button type="button" class="btn" id="fUse">Use typed route</button>
             <button type="button" class="btn" id="fDirect">Direct</button>
@@ -618,7 +673,7 @@ tfoot td{font-weight:500;border-bottom:0;color:var(--muted)}
             <select id="starSel"></select>
             <select id="starTrSel" aria-label="STAR transition"></select>
             <button type="button" class="pv" id="pvStar">Preview STARs on map</button>
-            <label class="lab" for="appType">Approach</label>
+            <label class="lab" for="appType">Approach<button type="button" class="qi" data-faq="approach" aria-label="Help: approaches">?</button></label>
             <select id="appType" aria-label="Approach type"></select>
             <select id="appSel" aria-label="Specific approach"></select>
             <select id="appTrSel" aria-label="Approach transition"></select>
@@ -638,7 +693,7 @@ tfoot td{font-weight:500;border-bottom:0;color:var(--muted)}
       </section>
 
       <section class="panel">
-        <div class="ph"><h2>Weather</h2>
+        <div class="ph"><h2>Weather<button type="button" class="qi" data-faq="runways" aria-label="Help: weather and runways">?</button></h2>
           <div class="wxtools">
             <label for="wxLook" class="sr">Airport</label><input id="wxLook" maxlength="4" placeholder="ICAO" autocomplete="off" spellcheck="false">
             <button type="button" class="btn" id="wxLookBtn">Show METAR</button>
@@ -669,7 +724,7 @@ tfoot td{font-weight:500;border-bottom:0;color:var(--muted)}
   <div class="grid one">
     <div class="col">
       <section class="panel" id="landPanel">
-        <div class="ph"><h2>Landings</h2><span class="hint" id="landHint">Detected automatically at touchdown</span></div>
+        <div class="ph"><h2>Landings<button type="button" class="qi" data-faq="grade" aria-label="Help: landing grades">?</button></h2><span class="hint" id="landHint">Detected automatically at touchdown</span></div>
         <div id="landBody"></div>
       </section>
       <section class="panel">
@@ -681,7 +736,7 @@ tfoot td{font-weight:500;border-bottom:0;color:var(--muted)}
         <div class="profbox"><canvas id="prof"></canvas></div>
       </section>
       <section class="panel" id="chartsPanel">
-        <div class="ph"><h2>Charts</h2>
+        <div class="ph"><h2>Charts<button type="button" class="qi" data-faq="charts" aria-label="Help: charts">?</button></h2>
           <div class="wxtools">
             <span class="chq" id="chQuick"></span>
             <label for="chLook" class="sr">Airport</label><input id="chLook" maxlength="4" placeholder="ICAO" autocomplete="off" spellcheck="false">
@@ -699,6 +754,44 @@ tfoot td{font-weight:500;border-bottom:0;color:var(--muted)}
   <p class="foot">Export a plan from the MSFS 2024 world map (or SimBrief) as a .pln, then import it, drop it on this page, or paste the XML. Plans are saved in this browser only. Terrain comes from public elevation data at roughly 100–600 m resolution depending on route length, so treat clearance numbers as a planning guide. Tracks are true, not magnetic. For flight-sim use only.</p>
 </div>
 <div class="drop" id="drop" hidden>Drop .pln to load</div>
+<div class="hlp" id="help" hidden role="dialog" aria-modal="true" aria-labelledby="hlpTitle">
+  <div class="hlpbox">
+    <div class="hlphead">
+      <h2 id="hlpTitle">Route Desk help</h2>
+      <div class="hlptabs" role="tablist"><button type="button" data-ht="start" class="on">Get started</button><button type="button" data-ht="faq">FAQ</button></div>
+      <button type="button" class="hlpx" id="helpClose" aria-label="Close help">×</button>
+    </div>
+    <div class="hlpbody" id="hlpStart"></div>
+    <div class="hlpbody faqs" id="hlpFaq" hidden><h4>Getting started</h4>
+<details data-k="what"><summary>What is Route Desk?</summary><div class="a"><p>A free flight planner for Microsoft Flight Simulator 2024. Plan a flight on the <b>Plan</b> tab, check and fine-tune it on the <b>Map</b> tab (departures, arrivals, approaches, charts, weather), send it straight into your plane through the in-game tablet, then watch your flight live on this page and get your landing graded.</p><p>Nothing to sign up for, nothing to pay. Everything you plan stays in this browser.</p></div></details>
+<details data-k="need"><summary>What do I need to install?</summary><div class="a"><p>Only the small Route Desk tablet app, so the sim can receive your flights and send back your position. The website itself needs nothing. See <a href="#" data-help="start">Get started</a> for the download and a one-click installer.</p><p>You can plan flights without the tablet app and load them another way (see "Can I use it without the tablet app?").</p></div></details>
+<details data-k="smartscreen"><summary>Windows says "Windows protected your PC". Is that OK?</summary><div class="a"><p>Yes. Windows shows that for any small program that isn't from a big software company. Click <b>More info</b>, then <b>Run anyway</b>. The installer only copies the <code>routedesk-efb</code> folder into your sim's Community folder; you can open <code>install.ps1</code> in Notepad to read exactly what it does.</p><p>Prefer not to run it? Copy the folder by hand — the paths are under <a href="#" data-help="start">Get started</a> → "Rather copy it yourself?".</p></div></details>
+<details data-k="code"><summary>What is the tablet code, and where do I find it?</summary><div class="a"><p>An 8-character code (like <code>K7PX-29QM</code>) that links this website to your sim. Load into any flight, open the tablet in the cockpit and tap <b>Route Desk</b>; the code is shown on its screen. Type it into Route Desk here once and it's remembered.</p><p>Each tablet has its own code, so your flights only go to your sim. On the tablet, <b>Make a new tablet code</b> gives you a fresh one if you ever need it.</p></div></details>
+<details data-k="noapp"><summary>I don't see Route Desk on the tablet.</summary><div class="a"><ul><li>Make sure the <code>routedesk-efb</code> folder is directly inside the <b>Community</b> folder (not inside another folder like <code>Community\routedesk-efb\routedesk-efb</code>).</li><li>Restart the sim fully after installing; it only checks the Community folder at startup.</li><li>If you picked a custom add-on location when you installed the sim, the app has to go in <i>that</i> Community folder. Running the installer again finds it for you.</li></ul></div></details>
+
+<h4>Planning</h4>
+<details data-k="plan"><summary>How do I plan a flight?</summary><div class="a"><ol><li>On the <b>Plan</b> tab, pick your aircraft and type the departure and arrival airports.</li><li>Tick <b>Use SIDs and STARs</b> if you want a departure and arrival procedure, then press <b>Find route</b>. (Or type your own route and press <b>Use typed route</b>, or <b>Direct</b>.)</li><li>Fuel, times and weights fill in on the right. Add extra fuel with the +15/+30/+60 buttons.</li><li>Open the <b>Map</b> tab to check the route, pick your approach and look at charts.</li><li>Press <b>Send to tablet</b>.</li></ol></div></details>
+<details data-k="procs"><summary>Why don't I see SIDs, STARs or approaches?</summary><div class="a"><p>Procedures, airways and charts come from the FAA, so they cover <b>US airports only</b>. For flights elsewhere you can still plan: type the route yourself, or fly direct, and pick procedures in the plane's FMC or GPS.</p><p>At US airports, the list only shows procedures that fit the runway in use. Change the runway on the Map tab to see others.</p></div></details>
+<details data-k="runways"><summary>How does it choose runways?</summary><div class="a"><p>It reads the live ATIS for the airport when there is one (real-world, or VATSIM), otherwise the current METAR wind, and picks the runway the airport is actually using. With calm wind it uses the airport's usual traffic flow. You can always change it on the Map tab.</p><p>Weather is real-world and refreshes every few minutes. Type any ICAO in the Weather box on the Map tab to read its METAR and TAF.</p></div></details>
+<details data-k="approach"><summary>How do I pick an approach?</summary><div class="a"><p>On the Map tab, choose the approach type (ILS, RNAV and so on), then the specific approach and its transition. <b>Preview approaches on map</b> draws them all so you can compare before choosing. Route Desk suggests the one that fits your arrival best; it's only a suggestion.</p></div></details>
+<details data-k="charts"><summary>Where are the charts?</summary><div class="a"><p>Bottom of the Map tab. Your departure and arrival are one click away, or type any US airport's ICAO. Airport diagrams, departures, arrivals and approach plates are grouped and color-coded; click one to open it full screen and use the arrows to flip through.</p></div></details>
+<details data-k="airac"><summary>Is the navigation data current?</summary><div class="a"><p>Yes. Procedures, airways and charts update automatically from the FAA every cycle — there's nothing to download. (This is Route Desk's data; the navdata inside your aircraft's FMC is separate and comes with the sim or the aircraft.)</p></div></details>
+
+<h4>In the sim</h4>
+<details data-k="send"><summary>How do I get my flight into the plane?</summary><div class="a"><ol><li>Press <b>Send to tablet</b> here.</li><li>In the cockpit, open the tablet and tap <b>Route Desk</b>. The flight appears within a few seconds (tap <b>Check now</b> if you're impatient).</li><li>Tap <b>Load flight plan</b> to put it in the sim's flight plan and your aircraft's FMC/GPS. <b>Send to aircraft only</b> skips the sim's plan; <b>File with ATC</b> files it with the sim's ATC.</li></ol><p>Some study-level aircraft only read their own company-route files; for those use the route string, or <b>Send to SimBrief</b> and load it from the aircraft's SimBrief import.</p></div></details>
+<details data-k="noapp2"><summary>Can I use it without the tablet app?</summary><div class="a"><p>Yes. Press <b>Export .pln for MSFS</b> and load the file from the sim's world map (Flight Planning → Load), or press <b>Send to SimBrief</b>. You won't get live tracking or landing grades without the tablet app, though.</p></div></details>
+
+<h4>Live map and landings</h4>
+<details data-k="live"><summary>How do I follow my flight on another screen?</summary><div class="a"><p>Open the <b>Map</b> tab on any screen (a second monitor, a laptop, even your phone) and press <b>Start</b> on the small Live card in the corner of the map. Your plane appears as soon as a flight is loaded in the sim, with speed, altitude, vertical speed, distance to go and your next fix. Tick <b>Follow</b> to keep the map centered on you.</p></div></details>
+<details data-k="noplane"><summary>My plane isn't showing on the map.</summary><div class="a"><ul><li>The sim has to be in a flight (in the cockpit), not in the menus.</li><li>Check the code on the tablet matches the one here (Help → Get started → step 2 shows it, with a <b>Check connection</b> button).</li><li>Make sure you pressed <b>Start</b> on the Live card.</li><li>If Help shows "Update available", install the new tablet app and restart the sim.</li></ul></div></details>
+<details data-k="grade"><summary>How are landings graded?</summary><div class="a"><p>Every touchdown is scored out of 100 against real-world numbers for your type of aircraft (an airliner, business jet, turboprop or light aircraft each has its own target landing rate and limits). Points come off for landing too firm or too soft, high G-force, bounces, bank, landing flat or nose-first, and touching down outside the touchdown zone or off the centerline. The card lists every deduction.</p><p>90+ is an A, 80s a B, 70s a C, 60s a D, below 60 an F. Going past the aircraft's hard-landing limit is always an F.</p></div></details>
+
+<h4>Your data and updates</h4>
+<details data-k="data"><summary>Where are my flights and landings saved?</summary><div class="a"><p>In this browser only. Nobody else can see them, and they don't follow you to another computer or browser. Clearing your browser's site data for this page erases them. Flights you send to the tablet pass through a small relay and are deleted after 24 hours.</p></div></details>
+<details data-k="update"><summary>How do I update?</summary><div class="a"><p>The website updates itself — when there's a new version, a <b>Reload</b> button pops up. When there's a newer tablet app, Route Desk tells you; download it and run <b>Install Route Desk</b> again (it replaces the old one), then restart the sim.</p></div></details>
+<details data-k="remove"><summary>How do I remove the tablet app?</summary><div class="a"><p>Delete the <code>routedesk-efb</code> folder from your Community folder. That's all.</p></div></details></div>
+  </div>
+</div>
 <div class="chview" id="chView" hidden role="dialog" aria-modal="true" aria-labelledby="chvTitle">
   <div class="chvbar">
     <button type="button" class="btn" id="chvPrev" aria-label="Previous chart">‹</button>
@@ -2320,7 +2413,7 @@ addEventListener('hashchange',()=>showView(location.hash==='#map'?'map':'plan'))
 
 
 /* ---------- tell the person when a newer version is published ---------- */
-const APP_VERSION='2026-10-30.13';
+const APP_VERSION='2026-10-30.14';
 async function checkForUpdate(){try{const t=await (await fetch(location.pathname+'?v='+Date.now(),{cache:'no-store'})).text();
   const m=t.match(/APP_VERSION='([^']+)'/);if(m&&m[1]!==APP_VERSION)toast('A newer version of Route Desk is available',false,{label:'Reload',fn:()=>location.reload(),ms:60000});}catch(e){}}
 setTimeout(checkForUpdate,8000);setInterval(checkForUpdate,10*60000);
@@ -2431,6 +2524,7 @@ async function livePoll(){
     if(j.reset||j.n<LV.n){LV.trail=[];LV.n=0;}
     LV.trail.push(...(j.trail||[]));LV.n=j.n||LV.trail.length;LV.pos=j.pos;LV.age=j.age;
     if(j.pos&&j.pos.landing)ldIngest(j.pos.landing);
+    if(j.pos&&typeof noteTablet==='function')noteTablet(j.pos);
     if(!LV.pos||LV.age>30000)delay=6000;
     liveDraw();}
   catch(e){LV.fails++;delay=Math.min(15000,2000*LV.fails);liveSetStat('stale',LV.fails>2?'No connection':'Retrying');}
@@ -2468,11 +2562,11 @@ function renderLive(){
   const body=$('liveBody');if(!body)return;
   if(!getTabCode()){body.innerHTML=`<div class="lvmsg">Follow your flight here. Enter the code shown in <b>Route Desk</b> on the in-game tablet:<br>
       <input id="lvCode" maxlength="9" placeholder="ABCD-EFGH" autocomplete="off" spellcheck="false"><button type="button" class="btn primary" id="lvSave">Save and track</button><br>
-      Needs the Route Desk tablet app (version 1.5 or newer) in your Community folder. <a href="downloads/routedesk-efb.zip">Download it</a>.</div>`;
+      Needs the Route Desk tablet app in the sim. <a href="#" data-help="start">How to set it up</a></div>`;
     $('lvSave').onclick=()=>{const c=$('lvCode').value.toUpperCase().replace(/[^A-Z0-9]/g,'');if(c.length!==8){toast('The tablet code has 8 letters and numbers, like ABCD-EFGH.',true);return;}setTabCode(c);liveStart();};return;}
   if(!LV.on){body.innerHTML=`<div class="lvmsg">Press <b>Start</b> to follow your aircraft from the sim. Tablet code ${esc(getTabCode().slice(0,4)+'-'+getTabCode().slice(4))}.</div>`;return;}
   const p=LV.pos;
-  if(!p){body.innerHTML=`<div class="lvmsg">Waiting for your aircraft. It appears a few seconds after a flight loads in MSFS 2024 (needs the Route Desk tablet app).</div>`;return;}
+  if(!p){body.innerHTML=`<div class="lvmsg">Waiting for your aircraft. It appears a few seconds after a flight loads in MSFS 2024 (needs the Route Desk tablet app). <a href="#" data-faq="noplane">Not showing up?</a></div>`;return;}
   const pr=liveProgress(p),gs=p.gs||0,f=(v,d=0)=>v==null||!isFinite(v)?'—':(+v).toLocaleString(undefined,{maximumFractionDigits:d,minimumFractionDigits:d});
   const vsCls=p.vs>150?'up':p.vs<-150?'dn':'';
   const cell=(k,v,u,cls)=>`<div><div class="k">${k}</div><div class="v${cls?' '+cls:''}">${v}${u?`<small>${u}</small>`:''}</div></div>`;
@@ -2614,7 +2708,86 @@ function showBlank(){
 drawRecents();
 loadDB().then(ok=>{if(ok&&plan)applySetup(false);if(ok)renderLandings();});
 showView(location.hash==='#map'?'map':'plan');
-})();
-</script>
+/* ---------- help, first-run setup and tablet-app updates ---------- */
+const HELP={seenKey:'routedesk.tabletSeen',instKey:'routedesk.installed',welKey:'routedesk.welcomed',latest:null,conn:null,nagged:false};
+const lsGet=k=>{try{return localStorage.getItem(k);}catch(e){return null;}},lsSet=(k,v)=>{try{localStorage.setItem(k,v);}catch(e){}};
+const verCmp=(a,b)=>{a=String(a||'0').split('.').map(Number);b=String(b||'0').split('.').map(Number);for(let i=0;i<3;i++){const d=(a[i]||0)-(b[i]||0);if(d)return d;}return 0;};
+fetch('efb/version.json',{cache:'no-store'}).then(r=>r.json()).then(j=>{HELP.latest=j.version;helpState();}).catch(()=>{});
+function tabletSeen(){try{return JSON.parse(lsGet(HELP.seenKey)||'null');}catch(e){return null;}}
+function noteTablet(pos){ // called with every live position: remembers the tablet, nudges about updates
+  if(!pos)return;const v=pos.v||'1.5';lsSet(HELP.seenKey,JSON.stringify({t:Date.now(),v,code:getTabCode()}));
+  if(HELP.latest&&verCmp(v,HELP.latest)<0&&!HELP.nagged){HELP.nagged=true;
+    toast(`A newer Route Desk tablet app is available (${HELP.latest}; you have ${v}).`,false,{label:'Get update',fn:()=>openHelp('start'),ms:20000});}
+  helpState();}
+function setupDone(){const seen=tabletSeen(),code=getTabCode();
+  let hasPlan=false;try{hasPlan=!!plan||JSON.parse(lsGet(STORE)||'[]').length>0;}catch(e){}
+  return {inst:!!(seen||lsGet(HELP.instKey)),code:!!code,plan:hasPlan};}
+function helpState(){const d=setupDone(),seen=tabletSeen(),old=seen&&HELP.latest&&verCmp(seen.v,HELP.latest)<0;
+  $('helpDot').hidden=d.inst&&d.code&&d.plan&&!old;if(!$('help').hidden&&!$('hlpStart').hidden)renderSetup();}
+function renderSetup(){
+  const d=setupDone(),seen=tabletSeen(),code=getTabCode(),fmt=c=>c?c.slice(0,4)+'-'+c.slice(4):'';
+  const old=seen&&HELP.latest&&verCmp(seen.v,HELP.latest)<0,ver=HELP.latest?' '+HELP.latest:'';
+  const step=(n,done,title,st,body)=>`<div class="hstep${done?' done':''}"><div class="hnum">${done?'✓':n}</div><div><h3>${title}</h3><div class="hst">${st}</div>${body}</div></div>`;
+  const ago=t=>{const s=(Date.now()-t)/1000;return s<90?'just now':s<5400?Math.round(s/60)+' min ago':s<129600?Math.round(s/3600)+' h ago':Math.round(s/86400)+' days ago';};
+  let conn='';
+  if(HELP.conn==='checking')conn='<div class="hmsg">Checking…</div>';
+  else if(HELP.conn&&HELP.conn.pos)conn=`<div class="hmsg ok">Connected. Your aircraft was seen ${ago(Date.now()-(HELP.conn.age||0))}${HELP.conn.pos.v?' (tablet app '+esc(HELP.conn.pos.v)+')':''}.</div>`;
+  else if(HELP.conn==='none')conn='<div class="hmsg warn">Nothing from that tablet yet. The sim has to be in a flight with the tablet app installed; it sends your position a few seconds after the flight loads. Double-check the code too.</div>';
+  else if(HELP.conn==='error')conn='<div class="hmsg warn">Could not reach the live server. Check your internet connection and try again.</div>';
+  $('hlpStart').innerHTML=`<p class="hlpintro">${lsGet(HELP.welKey)?'Three steps to get set up. Each one ticks itself off once it\'s done.':'<b style="color:var(--ink)">Welcome!</b> Route Desk plans your MSFS 2024 flights, sends them to your plane, and lets you follow along live on another screen. Three steps to get set up (about five minutes):'}</p>
+  ${step(1,d.inst&&!old,'Install the tablet app'+(old?' — update available':''),
+    old?`You have version ${esc(seen.v)}; version ${esc(HELP.latest)} is out. Download it and run the installer again.`:d.inst?(seen?`Installed (version ${esc(seen.v)}).`:'Marked as installed.'):'A small add-on that puts Route Desk on the in-game tablet.',
+    `<div class="hrow"><a class="btn primary hdl" href="downloads/routedesk-efb.zip" download>Download the tablet app${ver}</a></div>
+     <ol><li>Open your <b>Downloads</b> folder, right-click <code>routedesk-efb.zip</code> and choose <b>Extract All…</b>, then <b>Extract</b>.</li>
+     <li>In the folder that opens, double-click <b>Install Route Desk</b>.</li>
+     <li>If Windows says <i>"Windows protected your PC"</i>, click <b>More info</b>, then <b>Run anyway</b>. <a href="#" data-faq="smartscreen">Why?</a></li>
+     <li>The installer finds your sim and says <b>Installed</b>. If the sim is running, restart it.</li></ol>
+     <details><summary>Rather copy it yourself?</summary><p>Copy the <code>routedesk-efb</code> folder from the zip into your sim's <b>Community</b> folder. Paste the path for your version into the File Explorer address bar:</p>
+     <div class="hpath"><b>Microsoft Store / Xbox / Game Pass</b><code>%LOCALAPPDATA%\\Packages\\Microsoft.Limitless_8wekyb3d8bbwe\\LocalCache\\Packages\\Community</code><button type="button" class="btn" data-copy="%LOCALAPPDATA%\\Packages\\Microsoft.Limitless_8wekyb3d8bbwe\\LocalCache\\Packages\\Community">Copy</button>
+     <b>Steam</b><code>%APPDATA%\\Microsoft Flight Simulator 2024\\Packages\\Community</code><button type="button" class="btn" data-copy="%APPDATA%\\Microsoft Flight Simulator 2024\\Packages\\Community">Copy</button></div>
+     <p>If you chose a custom location for add-ons when you installed the sim, use the Community folder there.</p></details>
+     ${seen?'':`<div class="hrow"><label class="hchk"><input type="checkbox" id="hInst"${lsGet(HELP.instKey)?' checked':''}> I've installed it</label></div>`}`)}
+  ${step(2,d.code,'Connect the tablet',d.code?`Tablet code ${esc(fmt(code))} saved.`:'Links this website to your sim. You only do this once.',
+    `<ol><li>Start MSFS 2024 and load into any flight.</li><li>Open the tablet in the cockpit and tap <b>Route Desk</b>. It shows your <b>tablet code</b>.</li><li>Type it here:</li></ol>
+     <div class="hrow"><input id="hCode" maxlength="9" placeholder="ABCD-EFGH" autocomplete="off" spellcheck="false" value="${esc(fmt(code))}" aria-label="Tablet code"><button type="button" class="btn primary" id="hSave">${code?'Update':'Save'}</button>${code?'<button type="button" class="btn" id="hCheck">Check connection</button>':''}</div>${conn}`)}
+  ${step(3,d.plan,'Plan your first flight',d.plan?'Done. You\'re all set.':'Pick two airports and Route Desk does the rest.',
+    `<p style="margin:0">On the <b>Plan</b> tab, type your departure and arrival, press <b>Find route</b>, then <b>Send to tablet</b>. In the sim, tap <b>Load flight plan</b> on the tablet and it goes into your plane's FMC.</p>
+     <div class="hrow"><button type="button" class="btn primary" id="hPlan">Start planning</button></div>`)}
+  <div class="hnote"><b>While you fly:</b> open the <b>Map</b> tab on another screen and press <b>Start</b> on the Live card to follow your plane. Every landing is graded automatically. Questions? See the <a href="#" data-ht-go="faq">FAQ</a>. Procedures, airways and charts cover US airports.</div>`;
+  const hc=$('hCode'),save=()=>{const c=hc.value.toUpperCase().replace(/[^A-Z0-9]/g,'');
+    if(c.length!==8){toast('The tablet code has 8 letters and numbers, like ABCD-EFGH.',true);hc.focus();return;}
+    setTabCode(c);renderLive();checkConn();};
+  $('hSave').onclick=save;hc.addEventListener('keydown',e=>{if(e.key==='Enter')save();});
+  if($('hCheck'))$('hCheck').onclick=checkConn;
+  if($('hInst'))$('hInst').onchange=e=>{if(e.target.checked)lsSet(HELP.instKey,'1');else try{localStorage.removeItem(HELP.instKey);}catch(x){}renderSetup();helpState();};
+  $('hPlan').onclick=()=>{closeHelp();showView('plan');setTimeout(()=>{$('fDep').focus();$('fDep').scrollIntoView({block:'center'});},60);};
+  $('help').querySelectorAll('[data-copy]').forEach(b=>b.onclick=()=>{navigator.clipboard.writeText(b.dataset.copy).then(()=>toast('Copied. Paste it into the File Explorer address bar.'),()=>toast('Select the path and copy it with Ctrl+C.',true));});}
+async function checkConn(){const code=getTabCode();if(!code)return;HELP.conn='checking';renderSetup();
+  try{const r=await fetch(`${LIVE}/pos/${code}?since=999999999`,{cache:'no-store'});const j=await r.json();
+    HELP.conn=j.pos?{pos:j.pos,age:j.age}:'none';if(j.pos)noteTablet(j.pos);}catch(e){HELP.conn='error';}
+  renderSetup();helpState();}
+function helpTab(t){$('help').querySelectorAll('[data-ht]').forEach(b=>b.classList.toggle('on',b.dataset.ht===t));
+  $('hlpStart').hidden=t!=='start';$('hlpFaq').hidden=t!=='faq';if(t==='start')renderSetup();}
+let helpReturn=null;
+function openHelp(t,faq){helpReturn=document.activeElement;$('help').hidden=false;
+  if(!t){const d=setupDone();t=d.inst&&d.code&&d.plan?'faq':'start';}
+  helpTab(t);
+  if(t==='start'&&getTabCode()&&!HELP.conn)checkConn();
+  if(faq){const el=$('hlpFaq').querySelector(`details[data-k="${faq}"]`);if(el){el.open=true;el.classList.remove('flash');void el.offsetWidth;el.classList.add('flash');setTimeout(()=>el.scrollIntoView({block:'center'}),30);}}
+  else $('hlpStart').scrollTop=$('hlpFaq').scrollTop=0;
+  $('helpClose').focus();lsSet(HELP.welKey,'1');}
+function closeHelp(){$('help').hidden=true;if(helpReturn&&helpReturn.focus)try{helpReturn.focus();}catch(e){}}
+$('helpBtn').onclick=()=>openHelp();
+$('helpClose').onclick=closeHelp;
+$('help').addEventListener('click',e=>{if(e.target===$('help'))closeHelp();});
+$('help').querySelectorAll('[data-ht]').forEach(b=>b.onclick=()=>helpTab(b.dataset.ht));
+addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('help').hidden)closeHelp();});
+// any "?" icon or help link anywhere on the page
+document.addEventListener('click',e=>{const q=e.target.closest('[data-faq],[data-help],[data-ht-go]');if(!q)return;e.preventDefault();
+  if(q.dataset.htGo){helpTab(q.dataset.htGo);return;}
+  if(q.dataset.help)openHelp(q.dataset.help);else openHelp('faq',q.dataset.faq);});
+helpState();
+if(!lsGet(HELP.welKey)&&!lsGet(STORE)&&!getTabCode())setTimeout(()=>openHelp('start'),400);
+})();</script>
 </body>
 </html>

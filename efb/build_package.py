@@ -10,6 +10,9 @@ files = {
     'ContentInfo/routedesk-efb/thumbnail.jpg': 'PackageDefinitions/routedesk-efb/ContentInfo/thumbnail.jpg',
 }
 version = json.load(open(os.path.join(HERE, 'version.json')))['version']
+import re
+js = open(os.path.join(HERE, 'PackageSources/RouteDesk/RouteDesk.js')).read()
+assert re.search(r"var BUILD = '%s';" % re.escape(version), js), 'BUILD in RouteDesk.js must match version.json'
 for dst, src in files.items():
     p = os.path.join(OUT, dst); os.makedirs(os.path.dirname(p), exist_ok=True); shutil.copyfile(os.path.join(HERE, src), p)
 manifest = {
@@ -34,4 +37,8 @@ with zipfile.ZipFile(zp, 'w', zipfile.ZIP_DEFLATED) as z:
         for n in names:
             full = os.path.join(root, n)
             z.write(full, os.path.relpath(full, os.path.dirname(OUT)))
+    # installer + readme at the zip root, with Windows line endings
+    for n in ('Install Route Desk.bat', 'install.ps1', 'README.txt'):
+        txt = open(os.path.join(HERE, 'installer', n), encoding='utf-8').read().replace('\r\n', '\n').replace('\n', '\r\n')
+        z.writestr(n, txt.encode('ascii'))
 print('built', zp, os.path.getsize(zp), 'bytes, version', version)

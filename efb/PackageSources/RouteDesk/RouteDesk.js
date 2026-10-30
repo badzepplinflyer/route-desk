@@ -23,6 +23,7 @@
   var APP_NAME = 'Route Desk';
   var INTERNAL_NAME = 'RouteDesk';            // must match folder + file name
   var VERSION = '1.0.0';
+  var BUILD = '1.6.0'; // package version, kept in step with version.json by build_package.py
   var EFB_API_VERSION = '1.0.3';
   var RELAY = 'https://routedesk-relay.scjjohn2005.workers.dev';
   var LIVE = 'https://routedesk-live.scjjohn2005.workers.dev';
@@ -217,6 +218,7 @@
     body.hdg = Math.round(p.hdg * 10) / 10; body.gs = Math.round(p.gs * 10) / 10; body.alt = Math.round(p.alt); body.vs = Math.round(p.vs);
     if (LIVE_STATE.reset) body.reset = true;
     if (LAND.last) body.landing = LAND.last;
+    body.v = BUILD;
     var xhr = new XMLHttpRequest();
     LIVE_STATE.busy = true;
     xhr.open('PUT', LIVE + '/pos/' + code);
