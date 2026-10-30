@@ -330,6 +330,23 @@ td.cons{color:var(--accent)}
 .liveplane svg{display:block;filter:drop-shadow(0 1px 2px rgba(0,0,0,.6))}
 tbody tr.next{box-shadow:inset 3px 0 0 #00b8d4}
 tbody tr.next td.id::after{content:' ◂ next';color:#00b8d4;font-size:10px;letter-spacing:.06em}
+.ldcard{display:grid;grid-template-columns:minmax(150px,auto) minmax(0,1fr);gap:0;border-bottom:1px solid var(--line)}
+.ldrate{padding:14px 16px;display:flex;flex-direction:column;justify-content:center;gap:4px;border-right:1px solid var(--line)}
+.ldrate .n{font:700 34px var(--f-mono);line-height:1;font-variant-numeric:tabular-nums}
+.ldrate .n small{font-size:13px;color:var(--muted);margin-left:4px;font-weight:500}
+.ldgrade{align-self:flex-start;font:700 11px var(--f-body);letter-spacing:.08em;text-transform:uppercase;color:#fff;padding:3px 8px;border-radius:3px}
+.g-butter{background:#2f9e44}.g-smooth{background:#37b24d}.g-firm{background:#f08c00}.g-hard{background:#e03131}.g-vhard{background:#862e9c}
+.ldrate .when{font:400 11px var(--f-mono);color:var(--muted)}
+.lddata{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:1px;background:var(--line);min-width:0}
+.lddata div{background:var(--panel);padding:7px 10px;min-width:0}
+.lddata .k{font:600 9.5px var(--f-body);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.lddata .v{font:600 15px var(--f-mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lddata .v.warn{color:var(--bad)}
+.ldhist{overflow-x:auto}
+.ldhist table{font-size:12px}
+.ldhist td.r{font-weight:700}
+.ldempty{padding:12px;color:var(--muted);font-size:13px;line-height:1.5}
+@media (max-width:560px){.ldcard{grid-template-columns:minmax(0,1fr)}.ldrate{border-right:0;border-bottom:1px solid var(--line)}}
 .appinfo{padding:8px 12px;border-bottom:1px solid var(--line);font:400 11.5px var(--f-mono);color:var(--muted);line-height:1.5}
 .appinfo b{color:var(--route);font-weight:600}
 .appinfo:empty{display:none}
@@ -519,6 +536,20 @@ tfoot td{font-weight:500;border-bottom:0;color:var(--muted)}
         </div>
         <div class="mapwrap"><div id="map"></div></div>
       </section>
+      <section class="panel live" id="livePanel">
+        <div class="ph"><h2>Live flight</h2>
+          <div class="wxtools">
+            <span class="livest" id="liveStat"><i></i><span>Off</span></span>
+            <label class="chk" for="liveFollow"><input type="checkbox" id="liveFollow" checked> Follow</label>
+            <button type="button" class="btn" id="liveToggle">Start tracking</button>
+          </div>
+        </div>
+        <div id="liveBody"></div>
+      </section>
+      <section class="panel" id="landPanel">
+        <div class="ph"><h2>Landings</h2><span class="hint" id="landHint">Detected automatically at touchdown</span></div>
+        <div id="landBody"></div>
+      </section>
       <section class="panel">
         <div class="ph"><h2>Route</h2><span class="hint" id="stripHint"></span></div>
         <div class="strip" id="strip"></div>
@@ -540,16 +571,6 @@ tfoot td{font-weight:500;border-bottom:0;color:var(--muted)}
     </div>
 
     <div class="col">
-      <section class="panel live" id="livePanel">
-        <div class="ph"><h2>Live flight</h2>
-          <div class="wxtools">
-            <span class="livest" id="liveStat"><i></i><span>Off</span></span>
-            <label class="chk" for="liveFollow"><input type="checkbox" id="liveFollow" checked> Follow</label>
-            <button type="button" class="btn" id="liveToggle">Start tracking</button>
-          </div>
-        </div>
-        <div id="liveBody"></div>
-      </section>
       <section class="panel">
         <div class="od">
           <div class="apt" id="depBox">
@@ -2263,7 +2284,7 @@ addEventListener('hashchange',()=>showView(location.hash==='#map'?'map':'plan'))
 
 
 /* ---------- tell the person when a newer version is published ---------- */
-const APP_VERSION='2026-10-30.4';
+const APP_VERSION='2026-10-30.5';
 async function checkForUpdate(){try{const t=await (await fetch(location.pathname+'?v='+Date.now(),{cache:'no-store'})).text();
   const m=t.match(/APP_VERSION='([^']+)'/);if(m&&m[1]!==APP_VERSION)toast('A newer version of Route Desk is available',false,{label:'Reload',fn:()=>location.reload(),ms:60000});}catch(e){}}
 setTimeout(checkForUpdate,8000);setInterval(checkForUpdate,10*60000);
@@ -2373,6 +2394,7 @@ async function livePoll(){
     if(!r.ok)throw new Error(r.status);const j=await r.json();LV.fails=0;
     if(j.reset||j.n<LV.n){LV.trail=[];LV.n=0;}
     LV.trail.push(...(j.trail||[]));LV.n=j.n||LV.trail.length;LV.pos=j.pos;LV.age=j.age;
+    if(j.pos&&j.pos.landing)ldIngest(j.pos.landing);
     if(!LV.pos||LV.age>30000)delay=6000;
     liveDraw();}
   catch(e){LV.fails++;delay=Math.min(15000,2000*LV.fails);liveSetStat('stale',LV.fails>2?'No connection':'Retrying');}
@@ -2410,11 +2432,11 @@ function renderLive(){
   const body=$('liveBody');if(!body)return;
   if(!getTabCode()){body.innerHTML=`<div class="lvmsg">Follow your flight here while you fly. In the sim, open <b>Route Desk</b> on the tablet and enter the code it shows:<br>
       <input id="lvCode" maxlength="9" placeholder="ABCD-EFGH" autocomplete="off" spellcheck="false"><button type="button" class="btn primary" id="lvSave">Save and track</button><br>
-      Needs the Route Desk tablet app (version 1.3 or newer) in your Community folder. <a href="downloads/routedesk-efb.zip">Download it</a>.</div>`;
+      Needs the Route Desk tablet app (version 1.4 or newer) in your Community folder. <a href="downloads/routedesk-efb.zip">Download it</a>.</div>`;
     $('lvSave').onclick=()=>{const c=$('lvCode').value.toUpperCase().replace(/[^A-Z0-9]/g,'');if(c.length!==8){toast('The tablet code has 8 letters and numbers, like ABCD-EFGH.',true);return;}setTabCode(c);liveStart();};return;}
   if(!LV.on){body.innerHTML=`<div class="lvmsg">Press <b>Start tracking</b> to follow your aircraft from the sim on this map. Tablet code ${esc(getTabCode().slice(0,4)+'-'+getTabCode().slice(4))}.</div>`;return;}
   const p=LV.pos;
-  if(!p){body.innerHTML=`<div class="lvmsg">Waiting for your aircraft. Start a flight in MSFS 2024 with the Route Desk tablet app installed (version 1.3 or newer). Your position appears here a few seconds after the sim loads; you don't need to open the tablet.</div>`;return;}
+  if(!p){body.innerHTML=`<div class="lvmsg">Waiting for your aircraft. Start a flight in MSFS 2024 with the Route Desk tablet app installed (version 1.4 or newer). Your position appears here a few seconds after the sim loads; you don't need to open the tablet.</div>`;return;}
   const pr=liveProgress(p),gs=p.gs||0,f=(v,d=0)=>v==null||!isFinite(v)?'—':(+v).toLocaleString(undefined,{maximumFractionDigits:d,minimumFractionDigits:d});
   const vsCls=p.vs>150?'up':p.vs<-150?'dn':'';
   const cell=(k,v,u,cls)=>`<div><div class="k">${k}</div><div class="v${cls?' '+cls:''}">${v}${u?`<small>${u}</small>`:''}</div></div>`;
@@ -2436,6 +2458,53 @@ map.on('dragstart',()=>{if(LV.on)$('liveFollow').checked=false;});
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&LV.on)livePoll();});
 renderLive();
 try{if(localStorage.getItem('routedesk.live')!=='0'&&getTabCode())liveStart();}catch(e){}
+
+
+/* ---------- landings: touchdowns sent by the tablet app ---------- */
+const LD_KEY='routedesk.landings';
+function getLandings(){try{return JSON.parse(localStorage.getItem(LD_KEY)||'[]');}catch(e){return [];}}
+function saveLandings(l){try{localStorage.setItem(LD_KEY,JSON.stringify(l.slice(0,60)));}catch(e){}}
+function ldGrade(r){r=Math.abs(r);return r<=60?['Butter','g-butter']:r<=180?['Smooth','g-smooth']:r<=300?['Firm','g-firm']:r<=600?['Hard','g-hard']:['Very hard','g-vhard'];}
+// which runway, how far down it and how far off the centerline
+function ldRunway(L){
+  if(!DB)return null;const P={lat:L.lat,lon:L.lon};let cands=[];
+  const pushApt=a=>{if(a)a.ends.forEach(e=>cands.push({a,e}));};
+  const d=plan&&aptByCode(plan.dstId);if(d&&gcDist(P,{lat:d.lat,lon:d.lon})<4)pushApt(d);
+  else{for(const r of DB){if(Math.abs(r[4]-L.lat)<0.06&&Math.abs(r[5]-L.lon)<0.08)pushApt(aptObj(r));}}
+  let best=null;
+  for(const {a,e} of cands){const diff=Math.abs(((L.hdg-e.course)%360+540)%360-180);if(diff>35)continue;
+    const dist=gcDist(e.thr,P),brg=gcBrg(e.thr,P),ang=(brg-e.course)*D2R,along=dist*Math.cos(ang)*6076.12,cross=dist*Math.sin(ang)*6076.12;
+    if(along<-2000||Math.abs(cross)>400)continue;
+    if(!best||Math.abs(cross)<Math.abs(best.cross))best={apt:a.code,rwy:e.id,course:e.course,along,cross,len:e.len||null};}
+  return best;}
+function renderLandings(){
+  const body=$('landBody');if(!body)return;const list=getLandings();
+  if(!list.length){body.innerHTML='<div class="ldempty">No landings yet. With live tracking on, each touchdown shows up here with its landing rate, G-force, speeds, and where you touched down on the runway. Needs the Route Desk tablet app 1.4 or newer.</div>';return;}
+  const L=list[0],gr=ldGrade(L.rate),rw=L.rw,f=(v,d=0)=>v==null||!isFinite(v)?'—':(+v).toLocaleString(undefined,{maximumFractionDigits:d,minimumFractionDigits:d});
+  let wind='—';if(L.wspd!=null){const crs=rw?rw.course:L.hdg,a=(L.wdir-crs)*D2R,hw=Math.round(L.wspd*Math.cos(a)),xw=Math.round(L.wspd*Math.sin(a));
+    wind=`${String(Math.round(L.wdir)%360||360).padStart(3,'0')}°/${L.wspd} · ${Math.abs(hw)} ${hw>=0?'head':'tail'} · ${Math.abs(xw)} cross`;}
+  const cell=(k,v,warn)=>`<div><div class="k">${k}</div><div class="v${warn?' warn':''}">${v}</div></div>`;
+  body.innerHTML=`<div class="ldcard"><div class="ldrate"><span class="ldgrade ${gr[1]}">${gr[0]}</span><div class="n">${f(L.rate)}<small>fpm</small></div>
+      <div class="when">${new Date(L.t).toISOString().slice(11,16)}Z · ${new Date(L.t).toLocaleDateString()}</div></div>
+    <div class="lddata">
+      ${cell('Runway',rw?`${esc(rw.apt)} ${esc(rw.rwy)}`:'—')}${cell('G-force',f(L.g,2)+' G',L.g>=1.6)}${cell('Bounces',L.bounces||0,L.bounces>0)}
+      ${cell('Touchdown IAS',f(L.ias)+' kt')}${cell('Ground speed',f(L.gs)+' kt')}${cell('Pitch',(L.pitch>0?'+':'')+f(L.pitch,1)+'°',L.pitch<0)}
+      ${cell('Bank',f(Math.abs(L.bank),1)+'°'+(L.bank?(L.bank>0?' R':' L'):''),Math.abs(L.bank)>4)}
+      ${cell('From threshold',rw?f(rw.along)+' ft':'—',rw&&(rw.along<500||rw.along>3000))}${cell('Off centerline',rw?f(Math.abs(rw.cross))+' ft '+(rw.cross>0?'R':'L'):'—',rw&&Math.abs(rw.cross)>25)}
+      ${cell('Wind',wind)}
+    </div></div>
+    <div class="ldhist"><table><thead><tr><th>Date</th><th>Runway</th><th>Rate</th><th>G</th><th>IAS</th><th>Bounces</th><th>From thr</th><th>Off CL</th></tr></thead><tbody>
+    ${list.map(x=>`<tr><td>${new Date(x.t).toLocaleDateString(undefined,{month:'short',day:'numeric'})} ${new Date(x.t).toISOString().slice(11,16)}Z</td><td>${x.rw?esc(x.rw.apt+' '+x.rw.rwy):'—'}</td>
+      <td class="r" style="color:${['var(--ok,#2f9e44)','#37b24d','#f08c00','var(--bad)','#862e9c'][['g-butter','g-smooth','g-firm','g-hard','g-vhard'].indexOf(ldGrade(x.rate)[1])]}">${f(x.rate)}</td><td>${f(x.g,2)}</td><td>${f(x.ias)}</td><td>${x.bounces||0}</td>
+      <td>${x.rw?f(x.rw.along):'—'}</td><td>${x.rw?f(Math.abs(x.rw.cross))+(x.rw.cross>0?' R':' L'):'—'}</td></tr>`).join('')}</tbody></table></div>`;
+  $('landHint').textContent=list.length+' landing'+(list.length>1?'s':'')+' recorded in this browser';}
+function ldIngest(L){
+  if(!L||!L.t)return;const list=getLandings(),i=list.findIndex(x=>x.t===L.t);
+  if(i>=0){const x=list[i];if(x.bounces===L.bounces&&x.g===L.g)return;Object.assign(x,L);saveLandings(list);renderLandings();return;}
+  if(Date.now()-L.t>6*3600000)return;   // ignore old touchdowns from a previous session
+  L.rw=ldRunway(L);list.unshift(L);saveLandings(list);renderLandings();
+  const gr=ldGrade(L.rate);toast(`Touchdown${L.rw?' on '+L.rw.apt+' '+L.rw.rwy:''}: ${L.rate} fpm, ${L.g} G (${gr[0].toLowerCase()})`);}
+renderLandings();
 
 /* ---------- sample plan (example data, KSEA–KSFO via V23) ---------- */
 function dms(v,pos,neg){const s=v<0?neg:pos;v=Math.abs(v);const d=Math.floor(v),mf=(v-d)*60,m=Math.floor(mf),sec=((mf-m)*60).toFixed(2);return `${s}${d}° ${m}' ${sec}"`;}

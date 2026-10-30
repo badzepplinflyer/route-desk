@@ -168,6 +168,42 @@
     } catch (e) { TRACK.err = String(e); }
     notifyTrack();
   }
+  /* ---------- landing detection: a fast check near the ground catches the touchdown ---------- */
+  var LAND = { wasGround: null, airborneAt: 0, maxG: 1, gUntil: 0, last: null, lastVs: 0, lastPitch: 0, lastBank: 0 };
+  function sv(name, unit, dflt) { try { var v = SimVar.GetSimVarValue(name, unit); return isFinite(v) ? v : dflt; } catch (e) { return dflt; } }
+  function landingCheck() {
+    if (typeof SimVar === 'undefined' || !SimVar.GetSimVarValue) return;
+    var now = Date.now(), g = !!sv('SIM ON GROUND', 'bool', 0), agl = sv('PLANE ALT ABOVE GROUND', 'feet', 9999), gf = sv('G FORCE', 'gforce', 1);
+    if (LAND.wasGround === null) { LAND.wasGround = g; return; }
+    if (!g) {
+      if (LAND.wasGround) { LAND.airborneAt = now; LAND.maxG = 1; }
+      if (agl < 300) { LAND.lastVs = sv('VERTICAL SPEED', 'feet per minute', 0); LAND.lastPitch = -sv('PLANE PITCH DEGREES', 'degrees', 0); LAND.lastBank = -sv('PLANE BANK DEGREES', 'degrees', 0); }
+      if (agl > 1000) LAND.maxG = 1;
+    }
+    if (agl < 300 || now < LAND.gUntil) LAND.maxG = Math.max(LAND.maxG, gf);
+    if (g && !LAND.wasGround && LAND.airborneAt && now - LAND.airborneAt > 4000 && sv('AIRSPEED INDICATED', 'knots', 0) > 30) {
+      var L = LAND.last;
+      if (L && now - L.t < 15000) { L.bounces = (L.bounces || 0) + 1; }      // touched down again right after: a bounce
+      else {
+        var tdv = sv('PLANE TOUCHDOWN NORMAL VELOCITY', 'feet per second', 0);
+        var rate = tdv ? -Math.abs(tdv * 60) : Math.min(0, LAND.lastVs);
+        var tlat = sv('PLANE TOUCHDOWN LATITUDE', 'degrees', 0), tlon = sv('PLANE TOUCHDOWN LONGITUDE', 'degrees', 0);
+        if (!tlat && !tlon) { tlat = sv('PLANE LATITUDE', 'degrees', 0); tlon = sv('PLANE LONGITUDE', 'degrees', 0); }
+        LAND.last = {
+          t: now, rate: Math.round(rate), ias: Math.round(sv('AIRSPEED INDICATED', 'knots', 0)), gs: Math.round(sv('GROUND VELOCITY', 'knots', 0)),
+          pitch: Math.round(LAND.lastPitch * 10) / 10, bank: Math.round(LAND.lastBank * 10) / 10,
+          hdg: Math.round(sv('PLANE HEADING DEGREES TRUE', 'degrees', 0)), hdgm: Math.round(sv('PLANE HEADING DEGREES MAGNETIC', 'degrees', 0)),
+          lat: Math.round(tlat * 1e6) / 1e6, lon: Math.round(tlon * 1e6) / 1e6,
+          wdir: Math.round(sv('AMBIENT WIND DIRECTION', 'degrees', 0)), wspd: Math.round(sv('AMBIENT WIND VELOCITY', 'knots', 0)),
+          flaps: sv('FLAPS HANDLE INDEX', 'number', null), g: Math.round(LAND.maxG * 100) / 100, bounces: 0
+        };
+      }
+      LAND.gUntil = now + 1500;
+    }
+    if (LAND.last && now < LAND.gUntil + 200 && now - LAND.last.t < 4000) LAND.last.g = Math.max(LAND.last.g || 1, Math.round(LAND.maxG * 100) / 100);
+    LAND.wasGround = g;
+  }
+
   function notifyTrack() { for (var i = 0; i < TRACK.listeners.length; i++) { try { TRACK.listeners[i](); } catch (e) { } } }
   // send the aircraft state to the live-tracking server so the website can follow the flight on another screen
   var LIVE_STATE = { busy: false, reset: false, last: 0, ok: null };
@@ -178,6 +214,7 @@
     body.lat = Math.round(p.lat * 1e6) / 1e6; body.lon = Math.round(p.lon * 1e6) / 1e6;
     body.hdg = Math.round(p.hdg * 10) / 10; body.gs = Math.round(p.gs * 10) / 10; body.alt = Math.round(p.alt); body.vs = Math.round(p.vs);
     if (LIVE_STATE.reset) body.reset = true;
+    if (LAND.last) body.landing = LAND.last;
     var xhr = new XMLHttpRequest();
     LIVE_STATE.busy = true;
     xhr.open('PUT', LIVE + '/pos/' + code);
@@ -193,6 +230,7 @@
   function startTracking() {
     if (!TRACK.timer) { sampleAircraft(); TRACK.timer = window.setInterval(sampleAircraft, 1000); }
     if (!LIVE_STATE.timer) LIVE_STATE.timer = window.setInterval(sendLive, LIVE_MS);
+    if (!LAND.timer) LAND.timer = window.setInterval(landingCheck, 100);
   }
 
   /* ---------- a small slippy map (no libraries: the tablet's browser is old) ---------- */
@@ -360,7 +398,8 @@
       if (f && rp.length) { rem = '<span>TO ' + esc(f.arr) + '</span>' + fmtN(gcNm([p.lat, p.lon], rp[rp.length - 1])) + ' nm'; }
       this.info.innerHTML = '<span class="first">GS</span>' + Math.round(p.gs) + ' kt<span>ALT</span>' + fmtN(p.alt) + ' ft' +
         '<span>HDG</span>' + ('00' + (Math.round(p.hdg) % 360)).slice(-3) + '&#176;<span>VS</span>' + (Math.round(p.vs / 10) * 10) + ' fpm' +
-        (p.ground ? '<span>ON GROUND</span>' : '') + rem;
+        (p.ground ? '<span>ON GROUND</span>' : '') + rem +
+        (LAND.last && Date.now() - LAND.last.t < 600000 ? '<span>LANDED</span>' + LAND.last.rate + ' fpm · ' + LAND.last.g + ' G' + (LAND.last.bounces ? ' · ' + LAND.last.bounces + ' bounce' + (LAND.last.bounces > 1 ? 's' : '') : '') : '');
     } else this.info.innerHTML = '<span class="first">No position yet</span>';
   };
 
