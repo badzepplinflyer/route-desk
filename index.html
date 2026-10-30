@@ -2284,7 +2284,7 @@ addEventListener('hashchange',()=>showView(location.hash==='#map'?'map':'plan'))
 
 
 /* ---------- tell the person when a newer version is published ---------- */
-const APP_VERSION='2026-10-30.5';
+const APP_VERSION='2026-10-30.6';
 async function checkForUpdate(){try{const t=await (await fetch(location.pathname+'?v='+Date.now(),{cache:'no-store'})).text();
   const m=t.match(/APP_VERSION='([^']+)'/);if(m&&m[1]!==APP_VERSION)toast('A newer version of Route Desk is available',false,{label:'Reload',fn:()=>location.reload(),ms:60000});}catch(e){}}
 setTimeout(checkForUpdate,8000);setInterval(checkForUpdate,10*60000);
@@ -2479,6 +2479,7 @@ function ldRunway(L){
   return best;}
 function renderLandings(){
   const body=$('landBody');if(!body)return;const list=getLandings();
+  if(DB&&list.some(x=>!x.rw&&!x.rwTried)){list.forEach(x=>{if(!x.rw&&!x.rwTried){x.rw=ldRunway(x);x.rwTried=true;}});saveLandings(list);}
   if(!list.length){body.innerHTML='<div class="ldempty">No landings yet. With live tracking on, each touchdown shows up here with its landing rate, G-force, speeds, and where you touched down on the runway. Needs the Route Desk tablet app 1.4 or newer.</div>';return;}
   const L=list[0],gr=ldGrade(L.rate),rw=L.rw,f=(v,d=0)=>v==null||!isFinite(v)?'—':(+v).toLocaleString(undefined,{maximumFractionDigits:d,minimumFractionDigits:d});
   let wind='—';if(L.wspd!=null){const crs=rw?rw.course:L.hdg,a=(L.wdir-crs)*D2R,hw=Math.round(L.wspd*Math.cos(a)),xw=Math.round(L.wspd*Math.sin(a));
@@ -2533,7 +2534,7 @@ function showBlank(){
   if(!$('fAc').value)$('fAc').value='A20N';
   $('fDep').focus();}
 drawRecents();
-loadDB().then(ok=>{if(ok&&plan)applySetup(false);});
+loadDB().then(ok=>{if(ok&&plan)applySetup(false);if(ok)renderLandings();});
 showView(location.hash==='#map'?'map':'plan');
 })();
 </script>
