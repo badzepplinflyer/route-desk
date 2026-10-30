@@ -195,8 +195,10 @@
           hdg: Math.round(sv('PLANE HEADING DEGREES TRUE', 'degrees', 0)), hdgm: Math.round(sv('PLANE HEADING DEGREES MAGNETIC', 'degrees', 0)),
           lat: Math.round(tlat * 1e6) / 1e6, lon: Math.round(tlon * 1e6) / 1e6,
           wdir: Math.round(sv('AMBIENT WIND DIRECTION', 'degrees', 0)), wspd: Math.round(sv('AMBIENT WIND VELOCITY', 'knots', 0)),
-          flaps: sv('FLAPS HANDLE INDEX', 'number', null), g: Math.round(LAND.maxG * 100) / 100, bounces: 0
+          flaps: sv('FLAPS HANDLE INDEX', 'number', null), g: Math.round(LAND.maxG * 100) / 100, bounces: 0,
+          wt: Math.round(sv('TOTAL WEIGHT', 'pounds', 0)) || null
         };
+        try { var tt = SimVar.GetSimVarValue('TITLE', 'string'); if (tt) LAND.last.title = String(tt).slice(0, 60); } catch (e) { }
       }
       LAND.gUntil = now + 1500;
     }
