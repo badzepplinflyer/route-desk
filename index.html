@@ -459,6 +459,7 @@ tfoot td{font-weight:500;border-bottom:0;color:var(--muted)}
 .hpath b{font-size:12px;white-space:nowrap}
 .hpath button{font:600 11px var(--f-body);padding:3px 8px}
 .hchk{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:var(--muted);cursor:pointer}
+.hchk input{width:auto;margin:0;padding:0}
 .hnote{margin-top:16px;padding:10px 12px;border-radius:8px;background:var(--bg);font-size:12.5px;color:var(--muted)}
 .hnote b{color:var(--ink)}
 .faqs h4{font:700 11px var(--f-body);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:18px 0 6px}
@@ -2413,7 +2414,7 @@ addEventListener('hashchange',()=>showView(location.hash==='#map'?'map':'plan'))
 
 
 /* ---------- tell the person when a newer version is published ---------- */
-const APP_VERSION='2026-10-30.14';
+const APP_VERSION='2026-10-30.15';
 async function checkForUpdate(){try{const t=await (await fetch(location.pathname+'?v='+Date.now(),{cache:'no-store'})).text();
   const m=t.match(/APP_VERSION='([^']+)'/);if(m&&m[1]!==APP_VERSION)toast('A newer version of Route Desk is available',false,{label:'Reload',fn:()=>location.reload(),ms:60000});}catch(e){}}
 setTimeout(checkForUpdate,8000);setInterval(checkForUpdate,10*60000);
