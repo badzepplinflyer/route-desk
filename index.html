@@ -1512,8 +1512,8 @@ function applySetup(fit){
   if(plan.procNote&&plan.procNote!==lastProcNote){lastProcNote=plan.procNote;toast(plan.procNote,true);}else if(!plan.procNote)lastProcNote='';return true;
 }
 function touched(){if(plan&&plan.sample){plan.sample=false;plan._key='new:'+Date.now();$('sampleBadge').hidden=true;}}
-wireSearch('depInput','depAc',()=>plan?plan.depId:'',code=>setDep(code));
-wireSearch('arrInput','arrAc',()=>plan?plan.dstId:'',code=>setArr(code));
+wireSearch('depInput','depAc',()=>plan?plan.depId:PENDING.dep,code=>setDep(code));
+wireSearch('arrInput','arrAc',()=>plan?plan.dstId:PENDING.arr,code=>setArr(code));
 $('depRwySel').addEventListener('change',e=>{touched();const s=plan.setup;s.depRwy=e.target.value;s.depRwyMode=e.target.value?'manual':'auto';const dp=getProcs(s.dep);
   if(dp&&s.sid){const o=dp.sid.find(x=>x.id===s.sid);if(o&&!sidFits(o,s.depRwy)){s.sid='';s.sidTr='';}}applySetup(false);});
 $('sidSel').addEventListener('change',e=>{touched();plan.setup.sid=e.target.value;plan.setup.sidTr=undefined;applySetup(false);});
@@ -1672,10 +1672,20 @@ $('fAc').addEventListener('change',e=>{if(!plan)return;const b=plan.brief;Object
 ['gs','burn','crz'].forEach(id=>$(id).addEventListener('input',()=>{if(!plan||!plan.brief)return;const b=plan.brief;
   if(id==='gs')b.tas=Math.max(40,(+$('gs').value||0)-(+b.wind||0));if(id==='burn')b.burn=+$('burn').value||0;if(id==='crz')b.crz=+$('crz').value||0;renderOfp();persistSoon();}));
 
-function setDep(code){if(!plan)return;const s=plan.setup;touched();if(code.toUpperCase()===String(s.dep).toUpperCase())return;closePreview();s.dep=code;s.depRwy='';s.depRwyMode='auto';s.sid=undefined;s.sidTr=undefined;plan.rwyWhy={...plan.rwyWhy,dep:''};applySetup(true);}
-function setArr(code){if(!plan)return;const s=plan.setup;touched();if(code.toUpperCase()===String(s.arr).toUpperCase())return;closePreview();s.arr=code;s.arrRwy='';s.arrRwyMode='auto';s.star=undefined;s.starTr=undefined;s.app='NONE';s.appTr=undefined;s.appMode='auto';s.appTrMode='auto';if(s.appType===undefined)s.appType=lastAppType();plan.rwyWhy={...plan.rwyWhy,arr:''};applySetup(true);}
-wireSearch('fDep','fDepAc',()=>plan?plan.depId:'',setDep);
-wireSearch('fArr','fArrAc',()=>plan?plan.dstId:'',setArr);
+const PENDING={dep:'',arr:''};
+async function startFlightFrom(dep,arr){
+  if(!(await loadDB())){toast('Airport data is still loading. Try again in a moment.',true);return;}
+  plan={src:null,xml:null,sample:false,_key:'new:'+Date.now(),type:'—',cruise:null,direct:true,userRoute:null,
+    setup:{dep,depRwy:'',arr,arrRwy:'',app:'NONE',sid:'',star:'',appType:lastAppType(),appMode:'auto',appTrMode:'auto',depRwyMode:'auto',arrRwyMode:'auto'},brief:defaultBrief('A20N')};
+  syncPerf();$('alertAlt').value=plan.brief.crz;alertLayer.redraw();routeDirty=false;$('sampleBadge').hidden=true;
+  if(applySetup(true)){$('fRouteMsg').textContent='Press Find route to build a route along airways, or type one.';$('fRouteMsg').className='hint';}}
+function pendingAirport(kind,code){PENDING[kind]=code.toUpperCase();const a=aptByCode(code);
+  $(kind==='dep'?'fDepName':'fArrName').textContent=a?a.name:'';$(kind==='dep'?'depInput':'arrInput').value=PENDING[kind];$(kind==='dep'?'fDep':'fArr').value=PENDING[kind];
+  if(PENDING.dep&&PENDING.arr)startFlightFrom(PENDING.dep,PENDING.arr);else (kind==='dep'?$('fArr'):$('fDep')).focus();}
+function setDep(code){if(!plan){pendingAirport('dep',code);return;}const s=plan.setup;touched();if(code.toUpperCase()===String(s.dep).toUpperCase())return;closePreview();s.dep=code;s.depRwy='';s.depRwyMode='auto';s.sid=undefined;s.sidTr=undefined;plan.rwyWhy={...plan.rwyWhy,dep:''};applySetup(true);}
+function setArr(code){if(!plan){pendingAirport('arr',code);return;}const s=plan.setup;touched();if(code.toUpperCase()===String(s.arr).toUpperCase())return;closePreview();s.arr=code;s.arrRwy='';s.arrRwyMode='auto';s.star=undefined;s.starTr=undefined;s.app='NONE';s.appTr=undefined;s.appMode='auto';s.appTrMode='auto';if(s.appType===undefined)s.appType=lastAppType();plan.rwyWhy={...plan.rwyWhy,arr:''};applySetup(true);}
+wireSearch('fDep','fDepAc',()=>plan?plan.depId:PENDING.dep,setDep);
+wireSearch('fArr','fArrAc',()=>plan?plan.dstId:PENDING.arr,setArr);
 wireSearch('fAltn','fAltnAc',()=>plan&&plan.brief?plan.brief.altn:'',code=>{plan.brief.altn=code.toUpperCase();renderOfp();persistSoon();});
 
 /* ---------- route database (FAA CIFP airways) ---------- */
@@ -1832,7 +1842,7 @@ function applyRoute(res,label){
 }
 $('fRoute').addEventListener('input',()=>{routeDirty=true;});
 $('fUse').onclick=async()=>{$('fRouteMsg').textContent='Reading route…';$('fRouteMsg').className='hint';applyRoute(await parseRoute($('fRoute').value),'Route applied');};
-$('fFind').onclick=async()=>{const msg=$('fRouteMsg');msg.textContent='Checking live runways, then finding routes…';msg.className='hint';await autoRunways(false);
+$('fFind').onclick=async()=>{if(!plan){toast('Enter a departure and an arrival airport first.',true);(PENDING.dep?$('fArr'):$('fDep')).focus();return;}const msg=$('fRouteMsg');msg.textContent='Checking live runways, then finding routes…';msg.className='hint';await autoRunways(false);
   await new Promise(r=>setTimeout(r,20));const r=await routeOptions();
   if(r.err){msg.textContent=r.err;msg.className='hint bad';return;}
   const box=$('fOpts'),opts=r.opts;
@@ -2253,7 +2263,7 @@ addEventListener('hashchange',()=>showView(location.hash==='#map'?'map':'plan'))
 
 
 /* ---------- tell the person when a newer version is published ---------- */
-const APP_VERSION='2026-10-30.3';
+const APP_VERSION='2026-10-30.4';
 async function checkForUpdate(){try{const t=await (await fetch(location.pathname+'?v='+Date.now(),{cache:'no-store'})).text();
   const m=t.match(/APP_VERSION='([^']+)'/);if(m&&m[1]!==APP_VERSION)toast('A newer version of Route Desk is available',false,{label:'Reload',fn:()=>location.reload(),ms:60000});}catch(e){}}
 setTimeout(checkForUpdate,8000);setInterval(checkForUpdate,10*60000);
@@ -2445,8 +2455,14 @@ ${wp('RBL','VOR',40.0989,-122.2365,0)}${wp('PYE','VOR',38.0797,-122.8678,0)}${wp
 
 const rec=getRecents();
 if(rec.length&&rec[0].xml) load(rec[0].xml,{entry:rec[0]});
-else if(rec.length) loadScratch(rec[0]).then(()=>{if(!plan)load(SAMPLE,{sample:true});});
-else load(SAMPLE,{sample:true});
+else if(rec.length) loadScratch(rec[0]).then(()=>{if(!plan)showBlank();});
+else showBlank();
+function showBlank(){
+  $('ofp').innerHTML='<div class="wxempty" style="padding:4px 0">Enter a departure and an arrival airport to start planning. The briefing builds here as you go.</div>';
+  $('pbarTitle').textContent='New flight: enter your departure and arrival';
+  $('fRouteMsg').textContent='Enter both airports first, then Find route.';
+  if(!$('fAc').value)$('fAc').value='A20N';
+  $('fDep').focus();}
 drawRecents();
 loadDB().then(ok=>{if(ok&&plan)applySetup(false);});
 showView(location.hash==='#map'?'map':'plan');
