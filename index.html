@@ -2182,9 +2182,10 @@ async function tabletPayload(){
     sid:plan.sidObj?plan.sidObj.id:'',sidT:plan.sidObj?(s.sidTr||''):'',star:plan.starObj?plan.starObj.id:'',starT:plan.starObj?(s.starTr||''):'',
     app,appT:ao?(s.appTr||''):'',appN:ao?ao.name:(plan.appInfo?plan.appInfo.lab:''),crz:Math.round(+b.crz||0),vfr:(+b.crz||0)<18000&&!w.some(x=>x.airway)&&!plan.sidObj&&!plan.starObj&&!ao,
     enr:runs.map(r=>leg(r.p,r.via)),rs:sbRoute()||'DCT',dist:Math.round(plan.total),ete:Math.round(o.ete*60),fuel:Math.round(o.block),res:Math.round(o.res),
-    zfw:Math.round(o.zfw),tow:Math.round(o.tow),altn:b.altn||''};
-  let j=JSON.stringify(p);if(j.length>3900){delete p.rs;j=JSON.stringify(p);}
-  if(j.length>3900)throw new Error('This route is too long to send to the tablet in one go.');
+    zfw:Math.round(o.zfw),tow:Math.round(o.tow),altn:b.altn||'',
+    pts:w.map(x=>[+x.pos.lat.toFixed(5),+x.pos.lon.toFixed(5)]),pn:w.map(x=>x.ident)};
+  let j=JSON.stringify(p);if(j.length>15000){delete p.pn;j=JSON.stringify(p);}
+  if(j.length>15000)throw new Error('This route is too long to send to the tablet in one go.');
   return j;}
 const RELAY='https://routedesk-relay.scjjohn2005.workers.dev';
 try{localStorage.removeItem('routedesk.ghToken');}catch(e){} // the GitHub mailbox is no longer used
@@ -2218,7 +2219,7 @@ addEventListener('hashchange',()=>showView(location.hash==='#map'?'map':'plan'))
 
 
 /* ---------- tell the person when a newer version is published ---------- */
-const APP_VERSION='2026-10-29.9';
+const APP_VERSION='2026-10-30.1';
 async function checkForUpdate(){try{const t=await (await fetch(location.pathname+'?v='+Date.now(),{cache:'no-store'})).text();
   const m=t.match(/APP_VERSION='([^']+)'/);if(m&&m[1]!==APP_VERSION)toast('A newer version of Route Desk is available',false,{label:'Reload',fn:()=>location.reload(),ms:60000});}catch(e){}}
 setTimeout(checkForUpdate,8000);setInterval(checkForUpdate,10*60000);

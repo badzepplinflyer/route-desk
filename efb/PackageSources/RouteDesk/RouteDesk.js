@@ -83,6 +83,26 @@
       '.rd-status{font-size:15px;line-height:21px;color:#c9d3db;min-height:21px;}' +
       '.rd-status.ok{color:#5fd38d;} .rd-status.bad{color:#ff7b7b;}' +
       '.rd-link{color:#4cc0da;cursor:pointer;text-decoration:underline;font-size:13px;}' +
+      '.rd-tabs{position:absolute;left:250px;top:14px;}' +
+      '.rd-tab{display:inline-block;padding:8px 22px;margin-right:6px;border:1px solid #33424e;border-radius:18px;font-size:16px;font-weight:bold;color:#c9d3db;cursor:pointer;}' +
+      '.rd-tab.on{background:#0a6a86;border-color:#0a6a86;color:#fff;}' +
+      '.rd-mapwrap{position:absolute;left:0;right:0;top:65px;bottom:0;overflow:hidden;}' +
+      '.mm-view{position:absolute;left:0;top:0;right:0;bottom:46px;overflow:hidden;background:#1b2630;cursor:move;}' +
+      '.mm-tiles{position:absolute;left:0;top:0;}' +
+      '.mm-tiles img{position:absolute;width:256px;height:256px;}' +
+      '.mm-svg{position:absolute;left:0;top:0;pointer-events:none;}' +
+      '.mm-lbls{position:absolute;left:0;top:0;pointer-events:none;}' +
+      '.mm-lbl{position:absolute;font-family:Consolas,monospace;font-size:12px;font-weight:bold;color:#16212a;background:rgba(255,255,255,0.88);padding:0 4px;border-radius:2px;white-space:nowrap;}' +
+      '.mm-lbl.apt{background:#0a6a86;color:#fff;font-size:13px;}' +
+      '.mm-plane{position:absolute;width:46px;height:46px;margin-left:-23px;margin-top:-23px;pointer-events:none;}' +
+      '.mm-ctl{position:absolute;right:12px;top:12px;width:120px;}' +
+      '.mm-btn{background:rgba(18,28,37,0.92);color:#e2e9ee;border:1px solid #33424e;border-radius:8px;padding:9px 0;margin-bottom:8px;text-align:center;font-size:15px;font-weight:bold;cursor:pointer;}' +
+      '.mm-btn.on{background:#0a6a86;border-color:#0a6a86;}' +
+      '.mm-note{position:absolute;left:20px;top:20px;right:150px;padding:12px 14px;background:rgba(18,28,37,0.92);border:1px solid #33424e;border-radius:8px;font-size:15px;line-height:21px;color:#c9d3db;}' +
+      '.mm-info{position:absolute;left:0;right:0;bottom:0;height:46px;background:#121c25;border-top:1px solid #25313b;font-family:Consolas,monospace;font-size:16px;line-height:46px;color:#e2e9ee;padding:0 16px;white-space:nowrap;overflow:hidden;}' +
+      '.mm-info span{color:#8796a3;font-size:12px;margin:0 6px 0 18px;}' +
+      '.mm-info span.first{margin-left:0;}' +
+      '.mm-attr{position:absolute;right:6px;bottom:2px;font-size:10px;color:#ffffff;text-shadow:0 0 2px #000;}' +
       '.rd-hidden{display:none;}';
     var el = document.createElement('style');
     el.id = STYLE_ID; el.type = 'text/css';
@@ -96,6 +116,218 @@
   function fmtN(n) { n = Math.round(+n || 0); return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
   function fmtAlt(a) { a = +a || 0; return a >= 18000 ? 'FL' + ('00' + Math.round(a / 100)).slice(-3) : fmtN(a) + ' ft'; }
   function hm(min) { min = Math.max(0, Math.round(+min || 0)); return Math.floor(min / 60) + ':' + ('0' + (min % 60)).slice(-2); }
+
+  /* ---------- aircraft position from the sim, recorded from the moment the tablet loads ---------- */
+  var D2R = Math.PI / 180;
+  function gcNm(a, b) {
+    var f1 = a[0] * D2R, f2 = b[0] * D2R, df = f2 - f1, dl = (b[1] - a[1]) * D2R;
+    var h = Math.sin(df / 2) * Math.sin(df / 2) + Math.cos(f1) * Math.cos(f2) * Math.sin(dl / 2) * Math.sin(dl / 2);
+    return 2 * Math.asin(Math.min(1, Math.sqrt(h))) * 3440.065;
+  }
+  var TRACK = { pts: [], pos: null, err: '', listeners: [], timer: null };
+  function simv(name, unit) { return SimVar.GetSimVarValue(name, unit); }
+  function sampleAircraft() {
+    if (typeof SimVar === 'undefined' || !SimVar.GetSimVarValue) { TRACK.err = 'nosimvar'; notifyTrack(); return; }
+    try {
+      var lat = simv('PLANE LATITUDE', 'degrees'), lon = simv('PLANE LONGITUDE', 'degrees');
+      if (!isFinite(lat) || !isFinite(lon) || (Math.abs(lat) < 0.0001 && Math.abs(lon) < 0.0001)) { TRACK.pos = null; notifyTrack(); return; }
+      var p = {
+        lat: lat, lon: lon,
+        hdg: simv('PLANE HEADING DEGREES TRUE', 'degrees'),
+        gs: simv('GROUND VELOCITY', 'knots'),
+        alt: simv('INDICATED ALTITUDE', 'feet'),
+        vs: simv('VERTICAL SPEED', 'feet per minute'),
+        ground: !!simv('SIM ON GROUND', 'bool'),
+        t: Date.now()
+      };
+      TRACK.err = '';
+      var last = TRACK.pts.length ? TRACK.pts[TRACK.pts.length - 1] : null;
+      if (last && gcNm(last, [lat, lon]) > 30) TRACK.pts = [];           // new flight or a jump in position
+      last = TRACK.pts.length ? TRACK.pts[TRACK.pts.length - 1] : null;
+      var minNm = p.ground ? 0.004 : 0.08;                                // ~7 m on the ground, ~150 m in the air
+      if (!last || gcNm(last, [lat, lon]) >= minNm) {
+        TRACK.pts.push([lat, lon]);
+        if (TRACK.pts.length > 6000) {                                    // thin the oldest half
+          var keep = [], half = Math.floor(TRACK.pts.length / 2);
+          for (var i = 0; i < TRACK.pts.length; i++) if (i >= half || i % 2 === 0) keep.push(TRACK.pts[i]);
+          TRACK.pts = keep;
+        }
+      }
+      TRACK.pos = p;
+    } catch (e) { TRACK.err = String(e); }
+    notifyTrack();
+  }
+  function notifyTrack() { for (var i = 0; i < TRACK.listeners.length; i++) { try { TRACK.listeners[i](); } catch (e) { } } }
+  function startTracking() { if (!TRACK.timer) { sampleAircraft(); TRACK.timer = window.setInterval(sampleAircraft, 1000); } }
+
+  /* ---------- a small slippy map (no libraries: the tablet's browser is old) ---------- */
+  var LAYERS = {
+    sat: { url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', max: 19, attr: 'Imagery © Esri, Maxar' },
+    map: { url: 'https://a.tile.opentopomap.org/{z}/{x}/{y}.png', max: 17, attr: '© OpenStreetMap contributors, © OpenTopoMap' }
+  };
+  function project(lat, lon, z) {
+    var n = 256 * Math.pow(2, z), s = Math.sin(Math.max(-85, Math.min(85, lat)) * D2R);
+    return [(lon + 180) / 360 * n, (0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI)) * n];
+  }
+  function unproject(x, y, z) {
+    var n = 256 * Math.pow(2, z), lon = x / n * 360 - 180;
+    var lat = Math.atan(Math.sinh(Math.PI * (1 - 2 * y / n))) / D2R;
+    return [lat, lon];
+  }
+  var PLANE_SVG = '<svg width="46" height="46" viewBox="-23 -23 46 46"><path d="M0 -20 L3 -8 L3 -3 L19 5 L19 9 L3 5 L2 14 L7 18 L7 21 L0 19 L-7 21 L-7 18 L-2 14 L-3 5 L-19 9 L-19 5 L-3 -3 L-3 -8 Z" fill="#ffd400" stroke="#16212a" stroke-width="1.6" stroke-linejoin="round"/></svg>';
+  var NS = 'http://www.w3.org/2000/svg';
+
+  function MovingMap(el, store) {
+    var self = this;
+    this.el = el; this.store = store;
+    this.z = 15; this.center = [0, 0]; this.follow = true; this.autoZoom = true;
+    this.layerMode = store.read('ROUTEDESK_MAP_LAYER') || 'auto';
+    this.flight = null; this.tiles = {}; this.tileZ = -1; this.visible = false;
+    el.innerHTML =
+      '<div class="mm-view"><div class="mm-tiles"></div>' +
+      '<svg class="mm-svg"><polyline class="r" fill="none" stroke="#ff4cae" stroke-width="3" stroke-linejoin="round"/>' +
+      '<polyline class="t" fill="none" stroke="#00e5ff" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/></svg>' +
+      '<div class="mm-lbls"></div><div class="mm-plane rd-hidden">' + PLANE_SVG + '</div>' +
+      '<div class="mm-note rd-hidden"></div>' +
+      '<div class="mm-ctl">' +
+      '<div class="mm-btn" data-m="in">+</div><div class="mm-btn" data-m="out">&#8722;</div>' +
+      '<div class="mm-btn on" data-m="follow">Follow</div><div class="mm-btn" data-m="layer"></div>' +
+      '<div class="mm-btn" data-m="clear">Clear track</div></div>' +
+      '<div class="mm-attr"></div></div>' +
+      '<div class="mm-info"></div>';
+    this.view = el.querySelector('.mm-view'); this.tileEl = el.querySelector('.mm-tiles');
+    this.svg = el.querySelector('.mm-svg'); this.rLine = el.querySelector('.r'); this.tLine = el.querySelector('.t');
+    this.lbls = el.querySelector('.mm-lbls'); this.plane = el.querySelector('.mm-plane'); this.note = el.querySelector('.mm-note');
+    this.info = el.querySelector('.mm-info'); this.attr = el.querySelector('.mm-attr');
+    var btns = el.querySelectorAll('[data-m]');
+    for (var i = 0; i < btns.length; i++) btns[i].addEventListener('click', (function (b) {
+      return function (e) { e.stopPropagation(); self.command(b.getAttribute('data-m')); };
+    })(btns[i]));
+    // drag to pan, wheel to zoom
+    var drag = null;
+    this.view.addEventListener('mousedown', function (e) { if (e.target.className && String(e.target.className).indexOf('mm-btn') >= 0) return; drag = [e.clientX, e.clientY]; });
+    window.addEventListener('mousemove', function (e) {
+      if (!drag) return;
+      var dx = e.clientX - drag[0], dy = e.clientY - drag[1]; if (Math.abs(dx) + Math.abs(dy) < 2) return;
+      drag = [e.clientX, e.clientY]; self.setFollow(false);
+      var c = project(self.center[0], self.center[1], self.z); self.center = unproject(c[0] - dx, c[1] - dy, self.z); self.render();
+    });
+    window.addEventListener('mouseup', function () { drag = null; });
+    this.view.addEventListener('wheel', function (e) { self.zoomBy(e.deltaY < 0 ? 1 : -1); });
+    this.onTrack = function () { if (self.visible) self.update(); };
+    TRACK.listeners.push(this.onTrack);
+    this.updateLayerBtn();
+  }
+  MovingMap.prototype.destroy = function () { var i = TRACK.listeners.indexOf(this.onTrack); if (i >= 0) TRACK.listeners.splice(i, 1); };
+  MovingMap.prototype.layer = function () {
+    var m = this.layerMode;
+    if (m === 'auto') m = (TRACK.pos && !TRACK.pos.ground) ? 'map' : 'sat';
+    return m;
+  };
+  MovingMap.prototype.updateLayerBtn = function () {
+    var b = this.el.querySelector('[data-m="layer"]');
+    b.textContent = this.layerMode === 'auto' ? 'Auto map' : this.layerMode === 'sat' ? 'Satellite' : 'Topo';
+  };
+  MovingMap.prototype.setFollow = function (on) {
+    this.follow = on; if (on) this.autoZoom = true;
+    this.el.querySelector('[data-m="follow"]').className = 'mm-btn' + (on ? ' on' : '');
+  };
+  MovingMap.prototype.zoomBy = function (d) {
+    this.autoZoom = false;
+    this.z = Math.max(3, Math.min(LAYERS[this.layer()].max, this.z + d));
+    this.render();
+  };
+  MovingMap.prototype.command = function (m) {
+    if (m === 'in') this.zoomBy(1);
+    else if (m === 'out') this.zoomBy(-1);
+    else if (m === 'follow') { this.setFollow(!this.follow); this.update(); }
+    else if (m === 'layer') {
+      this.layerMode = this.layerMode === 'auto' ? 'sat' : this.layerMode === 'sat' ? 'map' : 'auto';
+      this.store.write('ROUTEDESK_MAP_LAYER', this.layerMode); this.updateLayerBtn(); this.render();
+    } else if (m === 'clear') { TRACK.pts = TRACK.pos ? [[TRACK.pos.lat, TRACK.pos.lon]] : []; this.render(); }
+  };
+  MovingMap.prototype.setFlight = function (f) { this.flight = f; if (this.visible) this.render(); };
+  MovingMap.prototype.show = function (on) {
+    this.visible = on;
+    if (on) {
+      if (!TRACK.pos && this.flight && this.flight.pts && this.flight.pts.length && this.center[0] === 0) {
+        this.center = this.flight.pts[0]; this.z = 13;
+      }
+      this.update();
+    }
+  };
+  MovingMap.prototype.update = function () {
+    var p = TRACK.pos;
+    if (p && this.follow) {
+      this.center = [p.lat, p.lon];
+      if (this.autoZoom) this.z = p.ground ? 16 : p.alt < 5000 ? 12 : p.alt < 15000 ? 10 : 8;
+    }
+    this.render();
+  };
+  MovingMap.prototype.render = function () {
+    if (!this.visible) return;
+    var w = this.view.offsetWidth, h = this.view.offsetHeight; if (!w || !h) return;
+    var L = LAYERS[this.layer()]; if (this.z > L.max) this.z = L.max;
+    var z = this.z, c = project(this.center[0], this.center[1], z), x0 = c[0] - w / 2, y0 = c[1] - h / 2, n = Math.pow(2, z);
+    // tiles
+    if (this.tileZ !== z || this.tileLayer !== this.layer()) { this.tileEl.innerHTML = ''; this.tiles = {}; this.tileZ = z; this.tileLayer = this.layer(); }
+    var need = {};
+    for (var tx = Math.floor(x0 / 256); tx <= Math.floor((x0 + w) / 256); tx++) {
+      for (var ty = Math.floor(y0 / 256); ty <= Math.floor((y0 + h) / 256); ty++) {
+        if (ty < 0 || ty >= n) continue;
+        var wx = ((tx % n) + n) % n, key = tx + '_' + ty, img = this.tiles[key];
+        if (!img) {
+          img = document.createElement('img');
+          img.src = L.url.replace('{z}', z).replace('{x}', wx).replace('{y}', ty);
+          this.tileEl.appendChild(img); this.tiles[key] = img;
+        }
+        img.style.left = Math.round(tx * 256 - x0) + 'px'; img.style.top = Math.round(ty * 256 - y0) + 'px';
+        need[key] = 1;
+      }
+    }
+    for (var k in this.tiles) if (!need[k]) { if (this.tiles[k].parentNode) this.tiles[k].parentNode.removeChild(this.tiles[k]); delete this.tiles[k]; }
+    this.attr.textContent = L.attr;
+    // route and track
+    this.svg.setAttribute('width', w); this.svg.setAttribute('height', h);
+    var toXY = function (q) { var v = project(q[0], q[1], z); return [Math.round((v[0] - x0) * 10) / 10, Math.round((v[1] - y0) * 10) / 10]; };
+    var f = this.flight, rp = (f && f.pts) || [], s = [], i;
+    for (i = 0; i < rp.length; i++) s.push(toXY(rp[i]).join(','));
+    this.rLine.setAttribute('points', s.join(' '));
+    s = []; for (i = 0; i < TRACK.pts.length; i++) s.push(toXY(TRACK.pts[i]).join(','));
+    if (TRACK.pos) s.push(toXY([TRACK.pos.lat, TRACK.pos.lon]).join(','));
+    this.tLine.setAttribute('points', s.join(' '));
+    // waypoint labels (skip ones that would overlap)
+    var html = '', names = (f && f.pn) || [], lastXY = null;
+    for (i = 0; i < rp.length; i++) {
+      var v = toXY(rp[i]), apt = i === 0 || i === rp.length - 1;
+      if (v[0] < -60 || v[1] < -30 || v[0] > w + 60 || v[1] > h + 30) continue;
+      if (!apt && lastXY && Math.abs(v[0] - lastXY[0]) < 70 && Math.abs(v[1] - lastXY[1]) < 22) continue;
+      html += '<div class="mm-lbl' + (apt ? ' apt' : '') + '" style="left:' + (v[0] + 6) + 'px;top:' + (v[1] - 20) + 'px">' + esc(names[i] || '') + '</div>';
+      lastXY = v;
+    }
+    this.lbls.innerHTML = html;
+    // aircraft
+    var p = TRACK.pos;
+    if (p) {
+      var pv = toXY([p.lat, p.lon]);
+      this.plane.className = 'mm-plane';
+      this.plane.style.left = pv[0] + 'px'; this.plane.style.top = pv[1] + 'px';
+      this.plane.style.transform = 'rotate(' + Math.round(p.hdg) + 'deg)';
+    } else this.plane.className = 'mm-plane rd-hidden';
+    // status note and info bar
+    var note = '';
+    if (TRACK.err === 'nosimvar') note = 'This tablet can\'t read the aircraft position.';
+    else if (!p) note = 'Waiting for the aircraft position. It appears once you\'re in a flight.';
+    else if (!this.follow) note = '';
+    this.note.textContent = note; this.note.className = 'mm-note' + (note ? '' : ' rd-hidden');
+    if (p) {
+      var rem = '';
+      if (f && rp.length) { rem = '<span>TO ' + esc(f.arr) + '</span>' + fmtN(gcNm([p.lat, p.lon], rp[rp.length - 1])) + ' nm'; }
+      this.info.innerHTML = '<span class="first">GS</span>' + Math.round(p.gs) + ' kt<span>ALT</span>' + fmtN(p.alt) + ' ft' +
+        '<span>HDG</span>' + ('00' + (Math.round(p.hdg) % 360)).slice(-3) + '&#176;<span>VS</span>' + (Math.round(p.vs / 10) * 10) + ' fpm' +
+        (p.ground ? '<span>ON GROUND</span>' : '') + rem;
+    } else this.info.innerHTML = '<span class="first">No position yet</span>';
+  };
 
   /* ---------- turn a Route Desk flight into an MSFS FlightPlanRoute ---------- */
   function runwayId(sdk, rw) {
@@ -159,7 +391,23 @@
         return sdk.FSComponent.buildComponent('div', { class: 'rd-root', ref: this.rootRef });
       }
 
-      onAfterRender() { this.draw(); this.startPolling(); }
+      onAfterRender() {
+        var root = this.rootRef.instance; if (!root) return;
+        root.innerHTML = '<div class="rd-head"></div><div class="rd-body"></div><div class="rd-mapwrap rd-hidden"></div>';
+        this.headEl = root.querySelector('.rd-head'); this.bodyEl = root.querySelector('.rd-body'); this.mapEl = root.querySelector('.rd-mapwrap');
+        this.map = new MovingMap(this.mapEl, { read: readStore, write: writeStore });
+        this.tab = readStore('ROUTEDESK_TAB') === 'map' ? 'map' : 'flight';
+        startTracking();
+        this.draw(); this.startPolling();
+      }
+      setTab(t) {
+        this.tab = t; writeStore('ROUTEDESK_TAB', t);
+        this.bodyEl.className = 'rd-body' + (t === 'map' ? ' rd-hidden' : '');
+        this.mapEl.className = 'rd-mapwrap' + (t === 'map' ? '' : ' rd-hidden');
+        var tabs = this.headEl.querySelectorAll('[data-tab]');
+        for (var i = 0; i < tabs.length; i++) tabs[i].className = 'rd-tab' + (tabs[i].getAttribute('data-tab') === t ? ' on' : '');
+        this.map.show(t === 'map');
+      }
 
       startPolling() {
         var self = this;
@@ -239,10 +487,11 @@
       }
 
       draw() {
-        var root = this.rootRef.instance; if (!root) return;
+        var root = this.rootRef.instance; if (!root || !this.bodyEl) return;
         var f = this.flight, c = prettyCode(this.code), h = '';
-        h += '<div class="rd-head"><div class="rd-title">ROUTE<span>/</span>DESK</div>' +
-          '<div class="rd-code">Tablet code<b>' + esc(c) + '</b></div></div><div class="rd-body">';
+        this.headEl.innerHTML = '<div class="rd-title">ROUTE<span>/</span>DESK</div>' +
+          '<div class="rd-tabs"><div class="rd-tab" data-tab="flight">Flight</div><div class="rd-tab" data-tab="map">Map</div></div>' +
+          '<div class="rd-code">Tablet code<b>' + esc(c) + '</b></div>';
         if (!f) {
           h += '<div class="rd-card"><div class="rd-wait">No flight yet.<br>In Route Desk on your PC or phone, press <b style="letter-spacing:0">Send to tablet</b> and enter the code <b>' + esc(c) + '</b>.</div>' +
             '<div class="rd-muted">This screen checks for new flights every few seconds. Flights sent in the last 24 hours show up here.</div>' +
@@ -271,9 +520,12 @@
             '<div class="rd-muted">Works with aircraft that use the sim\'s own avionics (default airliners and GA). PMDG, Fenix and FlyByWire keep their own FMS: load the route there from the FMC entry sheet or SimBrief.</div>' +
             '<div class="rd-muted rd-check"></div><div class="rd-muted">Tablet code ' + esc(c) + '</div>';
         }
-        h += '</div>';
-        root.innerHTML = h;
-        var self = this, btns = root.querySelectorAll('[data-act]');
+        this.bodyEl.innerHTML = h;
+        var self = this, btns = this.bodyEl.querySelectorAll('[data-act]');
+        var tabs = this.headEl.querySelectorAll('[data-tab]');
+        for (var j = 0; j < tabs.length; j++) tabs[j].addEventListener('click', (function (b) { return function () { self.setTab(b.getAttribute('data-tab')); }; })(tabs[j]));
+        this.map.setFlight(f);
+        this.setTab(this.tab);
         for (var i = 0; i < btns.length; i++) {
           btns[i].addEventListener('click', (function (b) {
             return function () {
@@ -296,7 +548,7 @@
       routeGamepadInteractionEvent() { }
       handlePageKeyAction() { }
 
-      destroy() { this.destroyed = true; this.stopPolling(); super.destroy(); }
+      destroy() { this.destroyed = true; this.stopPolling(); if (this.map) this.map.destroy(); super.destroy(); }
     };
   }
 
@@ -335,6 +587,7 @@
         this.efbSettingsManager = props && props.efbSettingsManager;
         this.options = props && props.options;
         await this.install(props);
+        startTracking();
         this._isReady = true;
         try { if (window.Coherent && typeof window.Coherent.trigger === 'function') window.Coherent.trigger('EFB_APP_INSTALLED', APP_NAME, INTERNAL_NAME, EFB_API_VERSION, VERSION); } catch (e) { }
       }
