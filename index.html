@@ -339,21 +339,23 @@ td.cons{color:var(--accent)}
 .liveplane svg{display:block;filter:drop-shadow(0 1px 2px rgba(0,0,0,.6))}
 tbody tr.next{box-shadow:inset 3px 0 0 #00b8d4}
 tbody tr.next td.id::after{content:' ◂ next';color:#00b8d4;font-size:10px;letter-spacing:.06em}
-.ldcard{display:grid;grid-template-columns:minmax(150px,auto) minmax(0,1fr);gap:0;border-bottom:1px solid var(--line)}
-.ldrate{padding:14px 16px;display:flex;flex-direction:column;justify-content:center;gap:4px;border-right:1px solid var(--line)}
+.ldcard{display:grid;grid-template-columns:auto minmax(0,1.5fr) minmax(260px,1fr);gap:0;border-bottom:1px solid var(--line);align-items:stretch}
+.ldrate{padding:12px 18px;display:flex;flex-direction:column;justify-content:center;gap:4px;border-right:1px solid var(--line)}
 .ldrate .n{font:700 34px var(--f-mono);line-height:1;font-variant-numeric:tabular-nums}
 .ldrate .n small{font-size:13px;color:var(--muted);margin-left:4px;font-weight:500}
 .ldgrade{align-self:flex-start;font:700 11px var(--f-body);letter-spacing:.08em;text-transform:uppercase;color:#fff;padding:3px 8px;border-radius:3px}
 .g-butter{background:#2f9e44}.g-smooth{background:#37b24d}.g-firm{background:#f08c00}.g-hard{background:#e03131}.g-vhard{background:#862e9c}
 .ldtop{display:flex;align-items:center;gap:12px}.ldscore{font:700 30px var(--f-mono);line-height:1;font-variant-numeric:tabular-nums}.ldscore small{font-size:13px;color:var(--muted);font-weight:500}
 .ldrate .when{font:400 11px var(--f-mono);color:var(--muted)}
-.lddata{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:1px;background:var(--line);min-width:0}
-.lddata div{background:var(--panel);padding:7px 10px;min-width:0}
-.lddata .k{font:600 9.5px var(--f-body);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
-.lddata .v{font:600 15px var(--f-mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lddata{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));align-content:center;column-gap:18px;row-gap:9px;padding:12px 18px;min-width:0}
+.lddata>div{min-width:0}
+.lddata .k{font:600 9px var(--f-body);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lddata .v{font:600 13px var(--f-mono);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lddata .wsub{color:var(--muted);font-weight:500;font-size:11px}
 .lddata .v.warn{color:var(--bad)}
 .ldletter{font:800 40px var(--f-display);line-height:1;width:52px;height:52px;border-radius:10px;color:#fff;display:flex;align-items:center;justify-content:center}
-.ldnotes{padding:10px 14px;border-bottom:1px solid var(--line);font-size:12.5px;line-height:1.5}
+.ldnotes{padding:12px 16px;border-left:1px solid var(--line);font-size:12px;line-height:1.5;display:flex;flex-direction:column;justify-content:center}
+.ldnotes ul{margin:6px 0 0;padding-left:16px}.ldnotes li{margin:1px 0}
 .ldnotes .band{color:var(--muted);font:500 11.5px var(--f-mono)}
 .ldnotes ul{margin:6px 0 0;padding-left:18px;color:var(--ink)}
 .ldnotes .ok{margin-top:4px;color:#2f9e44;font-weight:600}
@@ -362,6 +364,8 @@ tbody tr.next td.id::after{content:' ◂ next';color:#00b8d4;font-size:10px;lett
 .ldhist table{font-size:12px}
 .ldhist td.r{font-weight:700}
 .ldempty{padding:12px;color:var(--muted);font-size:13px;line-height:1.5}
+@media (max-width:1250px){.ldcard{grid-template-columns:auto minmax(0,1fr)}.ldnotes{grid-column:1/-1;border-left:0;border-top:1px solid var(--line)}}
+@media (max-width:700px){.lddata{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media (max-width:560px){.ldcard{grid-template-columns:minmax(0,1fr)}.ldrate{border-right:0;border-bottom:1px solid var(--line)}}
 .liveov{position:absolute;top:10px;right:10px;z-index:900;width:262px;max-width:calc(100% - 70px);background:color-mix(in srgb,var(--panel) 94%,transparent);border:1px solid var(--line);border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,.25);font-size:12px;overflow:hidden}
 .lvhead{display:flex;align-items:center;gap:8px;padding:6px 8px;border-bottom:1px solid var(--line)}
@@ -2324,7 +2328,7 @@ addEventListener('hashchange',()=>showView(location.hash==='#map'?'map':'plan'))
 
 
 /* ---------- tell the person when a newer version is published ---------- */
-const APP_VERSION='2026-10-30.11';
+const APP_VERSION='2026-10-30.12';
 async function checkForUpdate(){try{const t=await (await fetch(location.pathname+'?v='+Date.now(),{cache:'no-store'})).text();
   const m=t.match(/APP_VERSION='([^']+)'/);if(m&&m[1]!==APP_VERSION)toast('A newer version of Route Desk is available',false,{label:'Reload',fn:()=>location.reload(),ms:60000});}catch(e){}}
 setTimeout(checkForUpdate,8000);setInterval(checkForUpdate,10*60000);
@@ -2564,7 +2568,7 @@ function renderLandings(){
   if(!list.length){body.innerHTML='<div class="ldempty">No landings yet. With live tracking on, each touchdown shows up here with its landing rate, G-force, speeds, and where you touched down on the runway. Needs the Route Desk tablet app 1.5 or newer.</div>';return;}
   const L=list[0],gr=ldGrade(L),rw=L.rw,f=(v,d=0)=>v==null||!isFinite(v)?'—':(+v).toLocaleString(undefined,{maximumFractionDigits:d,minimumFractionDigits:d});
   let wind='—';if(L.wspd!=null){const crs=rw?rw.course:L.hdg,a=(L.wdir-crs)*D2R,hw=Math.round(L.wspd*Math.cos(a)),xw=Math.round(L.wspd*Math.sin(a));
-    wind=`${String(Math.round(L.wdir)%360||360).padStart(3,'0')}°/${L.wspd} · ${Math.abs(hw)} ${hw>=0?'head':'tail'} · ${Math.abs(xw)} cross`;}
+    wind=`${String(Math.round(L.wdir)%360||360).padStart(3,'0')}°/${L.wspd} <span class="wsub">${Math.abs(hw)}${hw>=0?'H':'T'} ${Math.abs(xw)}X</span>`;}
   const cell=(k,v,warn)=>`<div><div class="k">${k}</div><div class="v${warn?' warn':''}">${v}</div></div>`;
   body.innerHTML=`<div class="ldcard"><div class="ldrate"><div class="ldtop"><div class="ldletter ${gr.cls}">${gr.letter}</div><div class="ldscore">${gr.score}<small>/100</small></div></div><span class="ldgrade ${gr.cls}">${gr.label}</span><div class="n">${f(L.rate)}<small>fpm</small></div>
       <div class="when">${new Date(L.t).toISOString().slice(11,16)}Z · ${new Date(L.t).toLocaleDateString()}</div></div>
@@ -2574,8 +2578,8 @@ function renderLandings(){
       ${cell('Bank',f(Math.abs(L.bank),1)+'°'+(L.bank?(L.bank>0?' R':' L'):''),Math.abs(L.bank)>4)}
       ${cell('From threshold',rw?f(rw.along)+' ft':'—',rw&&(rw.along<500||rw.along>3000))}${cell('Off centerline',rw?f(Math.abs(rw.cross))+' ft '+(rw.cross>0?'R':'L'):'—',rw&&Math.abs(rw.cross)>25)}
       ${cell('Wind',wind)}${L.wt?cell('Landing weight',f(L.wt)+' lb'):''}
-    </div></div>
-    <div class="ldnotes"><div class="band">${esc(gr.band)}</div>${gr.notes.length?'<ul>'+gr.notes.map(n=>`<li>${esc(n)}</li>`).join('')+'</ul>':'<div class="ok">Clean landing: no points taken off.</div>'}</div>
+    </div>
+    <div class="ldnotes"><div class="band">${esc(gr.band)}</div>${gr.notes.length?'<ul>'+gr.notes.map(n=>`<li>${esc(n)}</li>`).join('')+'</ul>':'<div class="ok">Clean landing: no points taken off.</div>'}</div></div>
     <div class="ldhist"><table><thead><tr><th>Date</th><th>Aircraft</th><th>Runway</th><th>Grade</th><th>Score</th><th>Rate</th><th>G</th><th>IAS</th><th>Bounces</th><th>From thr</th><th>Off CL</th></tr></thead><tbody>
     ${list.map(x=>{const g=ldGrade(x);return `<tr><td>${new Date(x.t).toLocaleDateString(undefined,{month:'short',day:'numeric'})} ${new Date(x.t).toISOString().slice(11,16)}Z</td><td>${esc(ldAircraft(x).ac)}</td><td>${x.rw?esc(x.rw.apt+' '+x.rw.rwy):'—'}</td>
       <td><span class="ldgrade ${g.cls}">${g.letter}</span></td><td class="r">${g.score}</td><td class="r">${f(x.rate)}</td><td>${f(x.g,2)}</td><td>${f(x.ias)}</td><td>${x.bounces||0}</td>
