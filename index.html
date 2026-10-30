@@ -345,6 +345,7 @@ tbody tr.next td.id::after{content:' ◂ next';color:#00b8d4;font-size:10px;lett
 .ldrate .n small{font-size:13px;color:var(--muted);margin-left:4px;font-weight:500}
 .ldgrade{align-self:flex-start;font:700 11px var(--f-body);letter-spacing:.08em;text-transform:uppercase;color:#fff;padding:3px 8px;border-radius:3px}
 .g-butter{background:#2f9e44}.g-smooth{background:#37b24d}.g-firm{background:#f08c00}.g-hard{background:#e03131}.g-vhard{background:#862e9c}
+.ldtop{display:flex;align-items:center;gap:12px}.ldscore{font:700 30px var(--f-mono);line-height:1;font-variant-numeric:tabular-nums}.ldscore small{font-size:13px;color:var(--muted);font-weight:500}
 .ldrate .when{font:400 11px var(--f-mono);color:var(--muted)}
 .lddata{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:1px;background:var(--line);min-width:0}
 .lddata div{background:var(--panel);padding:7px 10px;min-width:0}
@@ -2323,7 +2324,7 @@ addEventListener('hashchange',()=>showView(location.hash==='#map'?'map':'plan'))
 
 
 /* ---------- tell the person when a newer version is published ---------- */
-const APP_VERSION='2026-10-30.10';
+const APP_VERSION='2026-10-30.11';
 async function checkForUpdate(){try{const t=await (await fetch(location.pathname+'?v='+Date.now(),{cache:'no-store'})).text();
   const m=t.match(/APP_VERSION='([^']+)'/);if(m&&m[1]!==APP_VERSION)toast('A newer version of Route Desk is available',false,{label:'Reload',fn:()=>location.reload(),ms:60000});}catch(e){}}
 setTimeout(checkForUpdate,8000);setInterval(checkForUpdate,10*60000);
@@ -2525,19 +2526,26 @@ function ldGrade(L){
   if(typeof L!=='object')L={rate:L};
   const {cat,name,ac}=ldAircraft(L),r=Math.abs(L.rate||0),notes=[];
   const mlw=ACFT[ac]?ACFT[ac][7]:0,heavy=L.wt&&mlw&&L.wt>mlw,limit=heavy?cat.over:cat.limit;
-  let i; // 0=A 1=B 2=C 3=D 4=F
-  if(r>=limit)i=4;else if(r>limit*0.7)i=3;else if(r>cat.hi+100)i=2;else if(r>cat.hi||r<cat.lo*0.5)i=1;else i=0;
-  if(r<cat.lo*0.5)notes.push('Very soft: real crews land firmer to avoid floating long, especially on wet runways');
-  if(r>=limit)notes.push(`Beyond the ${limit} fpm structural limit${heavy?' for a landing above max landing weight':''}: a real aircraft would need a hard-landing inspection`);
-  if(heavy)notes.push(`Overweight landing (${Math.round(L.wt).toLocaleString()} lb, max ${mlw.toLocaleString()} lb)`);
-  if(L.g>=cat.g){i=Math.max(i,L.g>=cat.g+0.3?4:3);notes.push(`High G-force at touchdown (${L.g} G)`);}
-  if(L.bounces){i=Math.min(4,i+1);notes.push(L.bounces+' bounce'+(L.bounces>1?'s':''));}
-  if(L.pitch!=null&&L.pitch<0.5&&LD_AC[ac]!=='ga'){i=Math.min(4,i+1);notes.push('Flat or nose-low touchdown: the nose gear may have touched first');}
-  if(L.bank!=null&&Math.abs(L.bank)>4){i=Math.min(4,i+1);notes.push(`${Math.abs(L.bank)}° of bank at touchdown`);}
-  if(L.rw){if(L.rw.along<500||L.rw.along>3000){i=Math.min(4,i+1);notes.push(L.rw.along<500?'Touched down before the touchdown zone':'Touched down long, past the touchdown zone (500 to 3,000 ft)');}
-    if(Math.abs(L.rw.cross)>25){i=Math.min(4,i+1);notes.push(Math.round(Math.abs(L.rw.cross))+' ft off the centerline');}}
+  // 100-point score: start at 100 and take points off for each thing a check airman would note
+  let sc=100,cap=100;const ded=(n,txt)=>{n=Math.round(n);if(n>0){sc-=n;notes.push(`${txt} (−${n})`);}};
+  if(r>=limit){cap=55;notes.push(`Beyond the ${limit} fpm structural limit${heavy?' for a landing above max landing weight':''}: a real aircraft would need a hard-landing inspection`);}
+  else if(r>limit*0.7)cap=69;
+  if(r>cat.hi)ded(Math.min(50,(r-cat.hi)/(limit-cat.hi)*50),`Firmer than the ${cat.lo}–${cat.hi} fpm target at ${Math.round(r)} fpm`);
+  else if(r<cat.lo)ded((cat.lo-r)/cat.lo*16,r<cat.lo*0.5?'Very soft: real crews land firmer to avoid floating long, especially on wet runways':`Softer than the ${cat.lo}–${cat.hi} fpm target at ${Math.round(r)} fpm`);
+  if(heavy){cap=Math.min(cap,79);notes.push(`Overweight landing (${Math.round(L.wt).toLocaleString()} lb, max ${mlw.toLocaleString()} lb)`);}
+  if(L.g>=cat.g){cap=Math.min(cap,L.g>=cat.g+0.3?55:69);notes.push(`High G-force at touchdown (${L.g} G)`);}
+  else if(L.g>1.3)ded((L.g-1.3)*40,`${L.g} G at touchdown`);
+  if(L.bounces)ded(L.bounces*12,L.bounces+' bounce'+(L.bounces>1?'s':''));
+  if(L.pitch!=null&&L.pitch<0.5&&LD_AC[ac]!=='ga')ded(10,'Flat or nose-low touchdown: the nose gear may have touched first');
+  if(L.bank!=null&&Math.abs(L.bank)>2)ded(Math.min(15,(Math.abs(L.bank)-2)*3),`${Math.abs(L.bank)}° of bank at touchdown`);
+  if(L.rw){const al=L.rw.along,cx=Math.abs(L.rw.cross);
+    if(al<500||al>3000)ded(10,al<500?'Touched down before the touchdown zone':'Touched down long, past the touchdown zone (500 to 3,000 ft)');
+    else if(al<800||al>2200)ded(3,`Touched down at ${Math.round(al).toLocaleString()} ft, outside the ideal 1,000–2,000 ft aiming area`);
+    if(cx>5)ded(Math.min(15,(cx-5)*0.5),Math.round(cx)+' ft off the centerline');}
+  sc=Math.max(0,Math.min(cap,Math.round(sc)));
+  const i=sc>=90?0:sc>=80?1:sc>=70?2:sc>=60?3:4; // 0=A 1=B 2=C 3=D 4=F
   const G=[['A','Excellent','g-butter'],['B','Good','g-smooth'],['C','Firm','g-firm'],['D','Hard','g-hard'],['F','Hard landing','g-vhard']][i];
-  return {letter:G[0],label:G[1],cls:G[2],notes,name,band:`${name} (${cat.name}): normal ${cat.lo}–${cat.hi} fpm, hard-landing limit ${limit} fpm`};}
+  return {letter:G[0],label:G[1],cls:G[2],score:sc,notes,name,band:`${name} (${cat.name}): normal ${cat.lo}–${cat.hi} fpm, hard-landing limit ${limit} fpm`};}
 // which runway, how far down it and how far off the centerline
 function ldRunway(L){
   if(!DB)return null;const P={lat:L.lat,lon:L.lon};let cands=[];
@@ -2558,7 +2566,7 @@ function renderLandings(){
   let wind='—';if(L.wspd!=null){const crs=rw?rw.course:L.hdg,a=(L.wdir-crs)*D2R,hw=Math.round(L.wspd*Math.cos(a)),xw=Math.round(L.wspd*Math.sin(a));
     wind=`${String(Math.round(L.wdir)%360||360).padStart(3,'0')}°/${L.wspd} · ${Math.abs(hw)} ${hw>=0?'head':'tail'} · ${Math.abs(xw)} cross`;}
   const cell=(k,v,warn)=>`<div><div class="k">${k}</div><div class="v${warn?' warn':''}">${v}</div></div>`;
-  body.innerHTML=`<div class="ldcard"><div class="ldrate"><div class="ldletter ${gr.cls}">${gr.letter}</div><span class="ldgrade ${gr.cls}">${gr.label}</span><div class="n">${f(L.rate)}<small>fpm</small></div>
+  body.innerHTML=`<div class="ldcard"><div class="ldrate"><div class="ldtop"><div class="ldletter ${gr.cls}">${gr.letter}</div><div class="ldscore">${gr.score}<small>/100</small></div></div><span class="ldgrade ${gr.cls}">${gr.label}</span><div class="n">${f(L.rate)}<small>fpm</small></div>
       <div class="when">${new Date(L.t).toISOString().slice(11,16)}Z · ${new Date(L.t).toLocaleDateString()}</div></div>
     <div class="lddata">
       ${cell('Runway',rw?`${esc(rw.apt)} ${esc(rw.rwy)}`:'—')}${cell('G-force',f(L.g,2)+' G',L.g>=1.6)}${cell('Bounces',L.bounces||0,L.bounces>0)}
@@ -2567,10 +2575,10 @@ function renderLandings(){
       ${cell('From threshold',rw?f(rw.along)+' ft':'—',rw&&(rw.along<500||rw.along>3000))}${cell('Off centerline',rw?f(Math.abs(rw.cross))+' ft '+(rw.cross>0?'R':'L'):'—',rw&&Math.abs(rw.cross)>25)}
       ${cell('Wind',wind)}${L.wt?cell('Landing weight',f(L.wt)+' lb'):''}
     </div></div>
-    <div class="ldnotes"><div class="band">${esc(gr.band)}</div>${gr.notes.length?'<ul>'+gr.notes.map(n=>`<li>${esc(n)}</li>`).join('')+'</ul>':'<div class="ok">Clean landing: no issues found.</div>'}</div>
-    <div class="ldhist"><table><thead><tr><th>Date</th><th>Aircraft</th><th>Runway</th><th>Grade</th><th>Rate</th><th>G</th><th>IAS</th><th>Bounces</th><th>From thr</th><th>Off CL</th></tr></thead><tbody>
+    <div class="ldnotes"><div class="band">${esc(gr.band)}</div>${gr.notes.length?'<ul>'+gr.notes.map(n=>`<li>${esc(n)}</li>`).join('')+'</ul>':'<div class="ok">Clean landing: no points taken off.</div>'}</div>
+    <div class="ldhist"><table><thead><tr><th>Date</th><th>Aircraft</th><th>Runway</th><th>Grade</th><th>Score</th><th>Rate</th><th>G</th><th>IAS</th><th>Bounces</th><th>From thr</th><th>Off CL</th></tr></thead><tbody>
     ${list.map(x=>{const g=ldGrade(x);return `<tr><td>${new Date(x.t).toLocaleDateString(undefined,{month:'short',day:'numeric'})} ${new Date(x.t).toISOString().slice(11,16)}Z</td><td>${esc(ldAircraft(x).ac)}</td><td>${x.rw?esc(x.rw.apt+' '+x.rw.rwy):'—'}</td>
-      <td><span class="ldgrade ${g.cls}">${g.letter}</span></td><td class="r">${f(x.rate)}</td><td>${f(x.g,2)}</td><td>${f(x.ias)}</td><td>${x.bounces||0}</td>
+      <td><span class="ldgrade ${g.cls}">${g.letter}</span></td><td class="r">${g.score}</td><td class="r">${f(x.rate)}</td><td>${f(x.g,2)}</td><td>${f(x.ias)}</td><td>${x.bounces||0}</td>
       <td>${x.rw?f(x.rw.along):'—'}</td><td>${x.rw?f(Math.abs(x.rw.cross))+(x.rw.cross>0?' R':' L'):'—'}</td></tr>`;}).join('')}</tbody></table></div>`;
   $('landHint').textContent=list.length+' landing'+(list.length>1?'s':'')+' recorded in this browser';}
 function ldIngest(L){
@@ -2578,7 +2586,7 @@ function ldIngest(L){
   if(i>=0){const x=list[i];if(x.bounces===L.bounces&&x.g===L.g)return;Object.assign(x,L);saveLandings(list);renderLandings();return;}
   if(Date.now()-L.t>6*3600000)return;   // ignore old touchdowns from a previous session
   L.rw=ldRunway(L);if(!L.ac&&plan&&plan.brief)L.ac=plan.brief.ac;list.unshift(L);saveLandings(list);renderLandings();
-  const gr=ldGrade(L);toast(`Touchdown${L.rw?' on '+L.rw.apt+' '+L.rw.rwy:''}: ${L.rate} fpm, ${L.g} G · grade ${gr.letter} (${gr.label.toLowerCase()})`);}
+  const gr=ldGrade(L);toast(`Touchdown${L.rw?' on '+L.rw.apt+' '+L.rw.rwy:''}: ${L.rate} fpm, ${L.g} G · ${gr.score}/100, grade ${gr.letter} (${gr.label.toLowerCase()})`);}
 renderLandings();
 
 /* ---------- sample plan (example data, KSEA–KSFO via V23) ---------- */
