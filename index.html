@@ -78,6 +78,10 @@ input[type=file]{position:absolute;width:1px;height:1px;opacity:0;pointer-events
 
 #map{height:min(64vh,640px);min-height:360px;border-radius:0 0 8px 8px;background:var(--grid)}
 .mapview{display:flex;flex-direction:column;gap:14px}
+.stagerow{display:grid;grid-template-columns:minmax(0,1fr) 440px;gap:14px;align-items:start}
+.stagerow .sidecol{max-height:calc(100vh - 104px);min-height:526px;overflow-y:auto;padding-right:2px;scrollbar-width:thin}
+.grid.one{grid-template-columns:minmax(0,1fr)}
+@media (max-width:1200px){.stagerow{grid-template-columns:minmax(0,1fr)}.stagerow .sidecol{max-height:none;overflow:visible}}
 .stage #map{height:calc(100vh - 150px);min-height:480px}
 .mapwrap{position:relative}
 .leaflet-container{font-family:var(--f-body)}
@@ -547,7 +551,8 @@ tfoot td{font-weight:500;border-bottom:0;color:var(--muted)}
   </section>
 
   <div id="mapView" class="mapview">
-      <section class="panel mapsec stage">
+      <div class="stagerow">
+  <section class="panel mapsec stage">
         <div class="ph">
           <h2>Enroute chart</h2>
           <div class="maptools">
@@ -573,33 +578,7 @@ tfoot td{font-weight:500;border-bottom:0;color:var(--muted)}
             <div id="liveBody"></div>
           </div></div>
       </section>
-  <div class="grid">
-    <div class="col">
-      <section class="panel" id="landPanel">
-        <div class="ph"><h2>Landings</h2><span class="hint" id="landHint">Detected automatically at touchdown</span></div>
-        <div id="landBody"></div>
-      </section>
-      <section class="panel">
-        <div class="ph"><h2>Route</h2><span class="hint" id="stripHint"></span></div>
-        <div class="strip" id="strip"></div>
-      </section>
-      <section class="panel">
-        <div class="ph"><h2>Vertical profile · terrain within 5 nm</h2><span class="hint" id="profHint">Loading terrain…</span></div>
-        <div class="profbox"><canvas id="prof"></canvas></div>
-      </section>
-      <section class="panel" id="chartsPanel">
-        <div class="ph"><h2>Charts</h2>
-          <div class="wxtools">
-            <span class="chq" id="chQuick"></span>
-            <label for="chLook" class="sr">Airport</label><input id="chLook" maxlength="4" placeholder="ICAO" autocomplete="off" spellcheck="false">
-            <button type="button" class="btn" id="chLookBtn">Show charts</button>
-          </div>
-        </div>
-        <div id="chBody"><div class="wxempty">Pick an airport to see its charts.</div></div>
-      </section>
-    </div>
-
-    <div class="col">
+    <div class="col sidecol">
       <section class="panel">
         <div class="od">
           <div class="apt" id="depBox">
@@ -687,6 +666,34 @@ tfoot td{font-weight:500;border-bottom:0;color:var(--muted)}
         </div>
       </section>
     </div>
+  </div>
+  <div class="grid one">
+    <div class="col">
+      <section class="panel" id="landPanel">
+        <div class="ph"><h2>Landings</h2><span class="hint" id="landHint">Detected automatically at touchdown</span></div>
+        <div id="landBody"></div>
+      </section>
+      <section class="panel">
+        <div class="ph"><h2>Route</h2><span class="hint" id="stripHint"></span></div>
+        <div class="strip" id="strip"></div>
+      </section>
+      <section class="panel">
+        <div class="ph"><h2>Vertical profile · terrain within 5 nm</h2><span class="hint" id="profHint">Loading terrain…</span></div>
+        <div class="profbox"><canvas id="prof"></canvas></div>
+      </section>
+      <section class="panel" id="chartsPanel">
+        <div class="ph"><h2>Charts</h2>
+          <div class="wxtools">
+            <span class="chq" id="chQuick"></span>
+            <label for="chLook" class="sr">Airport</label><input id="chLook" maxlength="4" placeholder="ICAO" autocomplete="off" spellcheck="false">
+            <button type="button" class="btn" id="chLookBtn">Show charts</button>
+          </div>
+        </div>
+        <div id="chBody"><div class="wxempty">Pick an airport to see its charts.</div></div>
+      </section>
+    </div>
+
+    
   </div>
   </div>
 
@@ -2314,7 +2321,7 @@ addEventListener('hashchange',()=>showView(location.hash==='#map'?'map':'plan'))
 
 
 /* ---------- tell the person when a newer version is published ---------- */
-const APP_VERSION='2026-10-30.8';
+const APP_VERSION='2026-10-30.9';
 async function checkForUpdate(){try{const t=await (await fetch(location.pathname+'?v='+Date.now(),{cache:'no-store'})).text();
   const m=t.match(/APP_VERSION='([^']+)'/);if(m&&m[1]!==APP_VERSION)toast('A newer version of Route Desk is available',false,{label:'Reload',fn:()=>location.reload(),ms:60000});}catch(e){}}
 setTimeout(checkForUpdate,8000);setInterval(checkForUpdate,10*60000);
