@@ -310,6 +310,27 @@ td.cons{color:var(--accent)}
 .chvt b{font:700 15px var(--f-mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .chvt span{font-size:12px;color:var(--muted)}
 #chvFrame{flex:1;border:0;width:100%;background:#fff}
+.livest{display:inline-flex;align-items:center;gap:6px;font:600 11px var(--f-body);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.livest i{width:9px;height:9px;border-radius:50%;background:var(--line)}
+.livest.on i{background:#2f9e44;box-shadow:0 0 0 3px rgba(47,158,68,.25)}
+.livest.stale i{background:var(--warn)}
+.ph label.chk{display:inline-flex;align-items:center;gap:5px;font:600 11px var(--f-body);color:var(--muted);cursor:pointer}
+.ph label.chk input{accent-color:var(--accent)}
+.lvgrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;background:var(--line)}
+.lvgrid div{background:var(--panel);padding:8px 10px;min-width:0}
+.lvgrid .k{font:600 9.5px var(--f-body);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.lvgrid .v{font:600 19px var(--f-mono);font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lvgrid .v small{font-size:11px;color:var(--muted);margin-left:3px;font-weight:500}
+.lvgrid .v.up{color:#2f9e44}.lvgrid .v.dn{color:var(--warn)}
+.lvrow{display:flex;flex-wrap:wrap;gap:6px 16px;padding:8px 12px;font:500 12.5px var(--f-mono);color:var(--muted);border-top:1px solid var(--line)}
+.lvrow b{color:var(--ink);font-weight:600}
+.lvphase{display:inline-block;font:700 10.5px var(--f-body);letter-spacing:.08em;text-transform:uppercase;color:#fff;background:var(--accent);padding:2px 7px;border-radius:3px}
+.lvmsg{padding:12px;color:var(--muted);font-size:13px;line-height:1.5}
+.lvmsg input{font:600 15px var(--f-mono);letter-spacing:.1em;text-transform:uppercase;width:130px;padding:5px 8px;border:1px solid var(--line);border-radius:5px;background:var(--bg);color:var(--ink);margin:6px 6px 0 0}
+@media (max-width:560px){.lvgrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.liveplane svg{display:block;filter:drop-shadow(0 1px 2px rgba(0,0,0,.6))}
+tbody tr.next{box-shadow:inset 3px 0 0 #00b8d4}
+tbody tr.next td.id::after{content:' ◂ next';color:#00b8d4;font-size:10px;letter-spacing:.06em}
 .appinfo{padding:8px 12px;border-bottom:1px solid var(--line);font:400 11.5px var(--f-mono);color:var(--muted);line-height:1.5}
 .appinfo b{color:var(--route);font-weight:600}
 .appinfo:empty{display:none}
@@ -520,6 +541,16 @@ tfoot td{font-weight:500;border-bottom:0;color:var(--muted)}
     </div>
 
     <div class="col">
+      <section class="panel live" id="livePanel">
+        <div class="ph"><h2>Live flight</h2>
+          <div class="wxtools">
+            <span class="livest" id="liveStat"><i></i><span>Off</span></span>
+            <label class="chk" for="liveFollow"><input type="checkbox" id="liveFollow" checked> Follow</label>
+            <button type="button" class="btn" id="liveToggle">Start tracking</button>
+          </div>
+        </div>
+        <div id="liveBody"></div>
+      </section>
       <section class="panel">
         <div class="od">
           <div class="apt" id="depBox">
@@ -790,7 +821,8 @@ function renderLog(){
   const gs=+$('gs').value||1;
   $('log').innerHTML=plan.wps.map((p,i)=>{const proc=p.dep||p.arr||p.app||'';
     const tr=terrain&&i>0?p.terr:null, low=tr!=null&&p.palt-tr<1000&&p.cum>8&&p.cum<plan.total-8;
-    return `<tr data-i="${i}" tabindex="0"${i===selected?' class="sel"':''}>
+    const cls=[i===selected?'sel':'',typeof LV!=='undefined'&&LV.on&&LV.next===i?'next':''].filter(Boolean).join(' ');
+    return `<tr data-i="${i}" tabindex="0"${cls?` class="${cls}"`:''}>
       <td class="id">${esc(p.ident)} <span class="t">${shortType(p.type)}</span></td>
       <td class="via">${esc(i===0?'':(p.airway||(p.procLeg?'':'DCT')))}</td><td class="proc">${esc(proc)}</td>
       <td>${p.trk==null?'':trk3(p.trk)}</td><td>${i?p.leg.toFixed(1):''}</td><td>${i?p.cum.toFixed(0):'0'}</td>
@@ -1062,6 +1094,9 @@ function drawProf(){
   c.textAlign='center';let lastX=-99;
   plan.wps.forEach((p,i)=>{const x=X(p.cum);c.strokeStyle=i===selected?C.route:C.muted;c.lineWidth=1;c.beginPath();c.moveTo(x,Y(0));c.lineTo(x,Y(0)+5);c.stroke();
     if(x-lastX>44||i===plan.wps.length-1||i===selected){c.fillStyle=i===selected?C.route:C.muted;c.fillText(p.ident,Math.min(Math.max(x,Lp+14),w-Rp-14),h-8);lastX=x;}});
+  if(typeof LV!=='undefined'&&LV.on&&LV.pos&&LV.along!=null){const x=X(LV.along),y=Y(Math.max(0,LV.pos.alt||0));
+    c.fillStyle='#00b8d4';c.beginPath();c.moveTo(x+7,y);c.lineTo(x-5,y-5);c.lineTo(x-2,y);c.lineTo(x-5,y+5);c.closePath();c.fill();
+    c.strokeStyle='#00b8d4';c.setLineDash([3,3]);c.beginPath();c.moveTo(x,y+6);c.lineTo(x,Y(0));c.stroke();c.setLineDash([]);}
 }
 
 /* ---------- selection ---------- */
@@ -2219,7 +2254,7 @@ addEventListener('hashchange',()=>showView(location.hash==='#map'?'map':'plan'))
 
 
 /* ---------- tell the person when a newer version is published ---------- */
-const APP_VERSION='2026-10-30.1';
+const APP_VERSION='2026-10-30.2';
 async function checkForUpdate(){try{const t=await (await fetch(location.pathname+'?v='+Date.now(),{cache:'no-store'})).text();
   const m=t.match(/APP_VERSION='([^']+)'/);if(m&&m[1]!==APP_VERSION)toast('A newer version of Route Desk is available',false,{label:'Reload',fn:()=>location.reload(),ms:60000});}catch(e){}}
 setTimeout(checkForUpdate,8000);setInterval(checkForUpdate,10*60000);
@@ -2309,6 +2344,89 @@ $('chvClose').onclick=closeChart;$('chvPrev').onclick=()=>openChart((chPos-1+chF
 addEventListener('keydown',e=>{if($('chView').hidden)return;if(e.key==='Escape')closeChart();else if(e.key==='ArrowLeft')$('chvPrev').click();else if(e.key==='ArrowRight')$('chvNext').click();});
 $('chLookBtn').onclick=()=>{const v=$('chLook').value;if(!/^[A-Za-z0-9]{3,4}$/.test(v.trim())){toast('Enter an airport code, like KLAX.',true);return;}showCharts(v);$('chLook').value='';};
 $('chLook').addEventListener('keydown',e=>{if(e.key==='Enter')$('chLookBtn').click();});
+
+
+/* ---------- live flight: the aircraft followed from the in-game tablet app ---------- */
+const LIVE='https://routedesk-live.scjjohn2005.workers.dev';
+var LV={on:false,timer:null,n:0,trail:[],pos:null,age:null,marker:null,line:null,firstFix:true,fails:0,next:-1,along:null};
+const PLANE_SVG='<svg width="34" height="34" viewBox="-23 -23 46 46"><path d="M0 -20 L3 -8 L3 -3 L19 5 L19 9 L3 5 L2 14 L7 18 L7 21 L0 19 L-7 21 L-7 18 L-2 14 L-3 5 L-19 9 L-19 5 L-3 -3 L-3 -8 Z" fill="#ffd400" stroke="#16212a" stroke-width="1.8" stroke-linejoin="round"/></svg>';
+function liveSetStat(cls,txt){const el=$('liveStat');el.className='livest'+(cls?' '+cls:'');el.lastChild.textContent=txt;}
+function liveStart(){const code=getTabCode();if(!code){LV.on=false;renderLive();return;}
+  LV.on=true;try{localStorage.setItem('routedesk.live','1');}catch(e){}$('liveToggle').textContent='Stop tracking';LV.firstFix=true;livePoll();}
+function liveStop(){LV.on=false;clearTimeout(LV.timer);try{localStorage.setItem('routedesk.live','0');}catch(e){}$('liveToggle').textContent='Start tracking';
+  if(LV.marker){map.removeLayer(LV.marker);LV.marker=null;}if(LV.line){map.removeLayer(LV.line);LV.line=null;}LV.pos=null;LV.trail=[];LV.n=0;LV.next=-1;LV.along=null;liveSetStat('','Off');renderLive();renderLog();drawProf();}
+async function livePoll(){
+  clearTimeout(LV.timer);if(!LV.on)return;const code=getTabCode();
+  let delay=2000;
+  if(document.hidden)delay=10000;
+  else try{const c=new AbortController(),t=setTimeout(()=>c.abort(),8000);
+    const r=await fetch(`${LIVE}/pos/${code}?since=${LV.n}`,{cache:'no-store',signal:c.signal});clearTimeout(t);
+    if(!r.ok)throw new Error(r.status);const j=await r.json();LV.fails=0;
+    if(j.reset||j.n<LV.n){LV.trail=[];LV.n=0;}
+    LV.trail.push(...(j.trail||[]));LV.n=j.n||LV.trail.length;LV.pos=j.pos;LV.age=j.age;
+    if(!LV.pos||LV.age>30000)delay=6000;
+    liveDraw();}
+  catch(e){LV.fails++;delay=Math.min(15000,2000*LV.fails);liveSetStat('stale',LV.fails>2?'No connection':'Retrying');}
+  if(LV.on)LV.timer=setTimeout(livePoll,delay);}
+function livePhase(p){
+  if(p.ground){if(p.gs<1)return p.eng?'Parked, engine running':'Parked';if(p.gs<35)return 'Taxi';return p.vs>200?'Takeoff':'Takeoff / landing roll';}
+  const crz=(plan&&plan.brief&&+plan.brief.crz)||0,agl=p.agl!=null?p.agl:p.alt;
+  if(agl<2500&&p.vs<-200)return 'Final / approach';
+  if(p.vs>400)return 'Climb';if(p.vs<-400)return 'Descent';
+  if(crz&&Math.abs(p.alt-crz)<600)return 'Cruise';return 'Level';}
+function liveProgress(p){ // where the aircraft is along the planned route
+  if(!plan||!plan.wps||plan.wps.length<2){LV.next=-1;LV.along=null;return null;}
+  const P={lat:p.lat,lon:p.lon},w=plan.wps;let best=null;
+  for(let i=1;i<w.length;i++){const d1=gcDist(w[i-1].pos,P),d2=gcDist(P,w[i].pos),L=w[i].leg||gcDist(w[i-1].pos,w[i].pos),ex=d1+d2-L;
+    if(!best||ex<best.ex)best={i,ex,d1:Math.min(d1,L),d2};}
+  if(p.ground&&gcDist(w[0].pos,P)<3&&best.i<=1){LV.next=1;LV.along=0;return {next:w[1],toNext:gcDist(P,w[1].pos),remain:plan.total};}
+  if(best.ex>40){LV.next=-1;LV.along=null;return {off:true,remain:gcDist(P,w[w.length-1].pos)};}
+  const along=w[best.i-1].cum+best.d1;LV.next=best.i;LV.along=along;
+  return {next:w[best.i],toNext:best.d2,remain:Math.max(0,plan.total-along)};}
+function liveDraw(){
+  const p=LV.pos;
+  if(!p){liveSetStat('stale','Waiting for the sim');renderLive();return;}
+  const stale=LV.age>15000;liveSetStat(stale?'stale':'on',stale?'Last seen '+Math.round(LV.age/1000)+' s ago':'Live');
+  const ll=[p.lat,p.lon];
+  if(!LV.marker)LV.marker=L.marker(ll,{interactive:false,keyboard:false,zIndexOffset:1000,icon:L.divIcon({className:'',iconSize:null,html:'<div class="liveplane" style="position:absolute;transform:translate(-50%,-50%)">'+PLANE_SVG+'</div>'})}).addTo(map);
+  else LV.marker.setLatLng(ll);
+  const el=LV.marker.getElement()&&LV.marker.getElement().querySelector('svg');if(el)el.style.transform='rotate('+Math.round(p.hdg||0)+'deg)';
+  const pts=LV.trail.map(t=>[t[0],t[1]]);pts.push(ll);
+  if(!LV.line)LV.line=L.polyline(pts,{color:'#00b8d4',weight:3,opacity:.95,interactive:false}).addTo(map);else LV.line.setLatLngs(pts);
+  if($('liveFollow').checked&&!$('mapView').hidden){
+    if(LV.firstFix){map.setView(ll,p.ground?15:Math.max(map.getZoom(),8),{animate:false});LV.firstFix=false;}
+    else map.panTo(ll,{animate:true,duration:.8});}
+  renderLive();renderLog();drawProf();}
+function renderLive(){
+  const body=$('liveBody');if(!body)return;
+  if(!getTabCode()){body.innerHTML=`<div class="lvmsg">Follow your flight here while you fly. In the sim, open <b>Route Desk</b> on the tablet and enter the code it shows:<br>
+      <input id="lvCode" maxlength="9" placeholder="ABCD-EFGH" autocomplete="off" spellcheck="false"><button type="button" class="btn primary" id="lvSave">Save and track</button><br>
+      Needs the Route Desk tablet app (version 1.3 or newer) in your Community folder. <a href="downloads/routedesk-efb.zip">Download it</a>.</div>`;
+    $('lvSave').onclick=()=>{const c=$('lvCode').value.toUpperCase().replace(/[^A-Z0-9]/g,'');if(c.length!==8){toast('The tablet code has 8 letters and numbers, like ABCD-EFGH.',true);return;}setTabCode(c);liveStart();};return;}
+  if(!LV.on){body.innerHTML=`<div class="lvmsg">Press <b>Start tracking</b> to follow your aircraft from the sim on this map. Tablet code ${esc(getTabCode().slice(0,4)+'-'+getTabCode().slice(4))}.</div>`;return;}
+  const p=LV.pos;
+  if(!p){body.innerHTML=`<div class="lvmsg">Waiting for your aircraft. Start a flight in MSFS 2024 with the Route Desk tablet app installed (version 1.3 or newer). Your position appears here a few seconds after the sim loads; you don't need to open the tablet.</div>`;return;}
+  const pr=liveProgress(p),gs=p.gs||0,f=(v,d=0)=>v==null||!isFinite(v)?'—':(+v).toLocaleString(undefined,{maximumFractionDigits:d,minimumFractionDigits:d});
+  const vsCls=p.vs>150?'up':p.vs<-150?'dn':'';
+  const cell=(k,v,u,cls)=>`<div><div class="k">${k}</div><div class="v${cls?' '+cls:''}">${v}${u?`<small>${u}</small>`:''}</div></div>`;
+  const ete=pr&&gs>40?pr.remain/gs:null,eta=ete!=null?new Date(Date.now()+ete*3600000).toISOString().slice(11,16)+'Z':'—';
+  body.innerHTML=`<div class="lvgrid">
+    ${cell('IAS',f(p.ias),'kt')}${cell('Ground speed',f(gs),'kt')}${cell(p.mach>0.4?'Mach':'TAS',p.mach>0.4?f(p.mach,2):f(p.tas),p.mach>0.4?'':'kt')}${cell('Heading',p.hdgm!=null?String(Math.round(p.hdgm)%360||360).padStart(3,'0')+'°':'—','mag')}
+    ${cell('Altitude',p.alt>=18000?'FL'+String(Math.round(p.alt/100)).padStart(3,'0'):f(p.alt),p.alt>=18000?'':'ft')}${cell('Above ground',f(p.agl),'ft')}${cell('Vertical speed',(p.vs>0?'+':'')+f(Math.round((p.vs||0)/10)*10),'fpm',vsCls)}${cell('Fuel',f(p.fuel),'lb')}
+    ${cell('To '+esc(plan?plan.dstId:'dest'),pr?f(pr.remain):'—','nm')}${cell('ETE',ete!=null?hm(ete):'—','')}${cell('ETA',eta,'')}${cell('Next fix',pr&&pr.next?esc(pr.next.ident):pr&&pr.off?'Off route':'—',pr&&pr.next?f(pr.toNext,1)+' nm':'')}
+  </div>
+  <div class="lvrow"><span class="lvphase">${esc(livePhase(p))}</span>
+    <span>Wind <b>${p.wspd!=null?String(Math.round(p.wdir)%360||360).padStart(3,'0')+'° / '+Math.round(p.wspd)+' kt':'—'}</b></span>
+    <span>OAT <b>${p.oat!=null?Math.round(p.oat)+'°C':'—'}</b></span>
+    <span>Baro <b>${p.baro?(+p.baro).toFixed(2):'—'}</b></span>
+    <span>AP <b>${p.ap?'ON':'OFF'}</b></span><span>Gear <b>${p.gear==null?'—':p.gear?'DOWN':'UP'}</b></span><span>Flaps <b>${p.flaps!=null?p.flaps:'—'}</b></span>
+    ${p.pbrake?'<span><b>PARKING BRAKE</b></span>':''}${p.title?`<span>${esc(p.title)}</span>`:''}</div>`;}
+$('liveToggle').onclick=()=>{if(LV.on)liveStop();else{if(!getTabCode()){renderLive();$('lvCode')&&$('lvCode').focus();return;}liveStart();}};
+$('liveFollow').addEventListener('change',e=>{if(e.target.checked&&LV.pos)map.panTo([LV.pos.lat,LV.pos.lon]);});
+map.on('dragstart',()=>{if(LV.on)$('liveFollow').checked=false;});
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&LV.on)livePoll();});
+renderLive();
+try{if(localStorage.getItem('routedesk.live')!=='0'&&getTabCode())liveStart();}catch(e){}
 
 /* ---------- sample plan (example data, KSEA–KSFO via V23) ---------- */
 function dms(v,pos,neg){const s=v<0?neg:pos;v=Math.abs(v);const d=Math.floor(v),mf=(v-d)*60,m=Math.floor(mf),sec=((mf-m)*60).toFixed(2);return `${s}${d}° ${m}' ${sec}"`;}

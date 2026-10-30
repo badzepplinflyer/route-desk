@@ -25,6 +25,8 @@
   var VERSION = '1.0.0';
   var EFB_API_VERSION = '1.0.3';
   var RELAY = 'https://routedesk-relay.scjjohn2005.workers.dev';
+  var LIVE = 'https://routedesk-live.scjjohn2005.workers.dev';
+  var LIVE_MS = 2000;
   var POLL_MS = 5000;
   var CODE_KEY = 'ROUTEDESK_TABLET_CODE';
   var BASE_URL = 'coui://html_ui/efb_ui/efb_apps/' + INTERNAL_NAME;
@@ -140,6 +142,15 @@
         ground: !!simv('SIM ON GROUND', 'bool'),
         t: Date.now()
       };
+      // extra flight data for the live view on the website (each read is guarded: not every aircraft has every value)
+      var extra = [['ias', 'AIRSPEED INDICATED', 'knots'], ['tas', 'AIRSPEED TRUE', 'knots'], ['mach', 'AIRSPEED MACH', 'mach'],
+        ['hdgm', 'PLANE HEADING DEGREES MAGNETIC', 'degrees'], ['agl', 'PLANE ALT ABOVE GROUND', 'feet'], ['altt', 'PLANE ALTITUDE', 'feet'],
+        ['wdir', 'AMBIENT WIND DIRECTION', 'degrees'], ['wspd', 'AMBIENT WIND VELOCITY', 'knots'], ['oat', 'AMBIENT TEMPERATURE', 'celsius'],
+        ['fuel', 'FUEL TOTAL QUANTITY WEIGHT', 'pounds'], ['ap', 'AUTOPILOT MASTER', 'bool'], ['flaps', 'FLAPS HANDLE INDEX', 'number'],
+        ['gear', 'GEAR HANDLE POSITION', 'bool'], ['pbrake', 'BRAKE PARKING POSITION', 'bool'], ['eng', 'GENERAL ENG COMBUSTION:1', 'bool'],
+        ['baro', 'KOHLSMAN SETTING HG', 'inHg']];
+      for (var k = 0; k < extra.length; k++) { try { var v = simv(extra[k][1], extra[k][2]); if (isFinite(v)) p[extra[k][0]] = Math.round(v * 100) / 100; } catch (e) { } }
+      try { var title = SimVar.GetSimVarValue('TITLE', 'string'); if (title) p.title = String(title).slice(0, 60); } catch (e) { }
       TRACK.err = '';
       var last = TRACK.pts.length ? TRACK.pts[TRACK.pts.length - 1] : null;
       if (last && gcNm(last, [lat, lon]) > 30) TRACK.pts = [];           // new flight or a jump in position
@@ -158,7 +169,31 @@
     notifyTrack();
   }
   function notifyTrack() { for (var i = 0; i < TRACK.listeners.length; i++) { try { TRACK.listeners[i](); } catch (e) { } } }
-  function startTracking() { if (!TRACK.timer) { sampleAircraft(); TRACK.timer = window.setInterval(sampleAircraft, 1000); } }
+  // send the aircraft state to the live-tracking server so the website can follow the flight on another screen
+  var LIVE_STATE = { busy: false, reset: false, last: 0, ok: null };
+  function sendLive() {
+    var p = TRACK.pos; if (!p || LIVE_STATE.busy) return;
+    var code = getCode();
+    var body = {}; for (var k in p) body[k] = p[k];
+    body.lat = Math.round(p.lat * 1e6) / 1e6; body.lon = Math.round(p.lon * 1e6) / 1e6;
+    body.hdg = Math.round(p.hdg * 10) / 10; body.gs = Math.round(p.gs * 10) / 10; body.alt = Math.round(p.alt); body.vs = Math.round(p.vs);
+    if (LIVE_STATE.reset) body.reset = true;
+    var xhr = new XMLHttpRequest();
+    LIVE_STATE.busy = true;
+    xhr.open('PUT', LIVE + '/pos/' + code);
+    xhr.setRequestHeader('Content-Type', 'application/json');
+    xhr.timeout = 8000;
+    xhr.onreadystatechange = function () {
+      if (xhr.readyState !== 4) return;
+      LIVE_STATE.busy = false; LIVE_STATE.ok = xhr.status === 200;
+      if (xhr.status === 200) { LIVE_STATE.reset = false; LIVE_STATE.last = Date.now(); }
+    };
+    try { xhr.send(JSON.stringify(body)); } catch (e) { LIVE_STATE.busy = false; }
+  }
+  function startTracking() {
+    if (!TRACK.timer) { sampleAircraft(); TRACK.timer = window.setInterval(sampleAircraft, 1000); }
+    if (!LIVE_STATE.timer) LIVE_STATE.timer = window.setInterval(sendLive, LIVE_MS);
+  }
 
   /* ---------- a small slippy map (no libraries: the tablet's browser is old) ---------- */
   var LAYERS = {
@@ -244,7 +279,7 @@
     else if (m === 'layer') {
       this.layerMode = this.layerMode === 'auto' ? 'sat' : this.layerMode === 'sat' ? 'map' : 'auto';
       this.store.write('ROUTEDESK_MAP_LAYER', this.layerMode); this.updateLayerBtn(); this.render();
-    } else if (m === 'clear') { TRACK.pts = TRACK.pos ? [[TRACK.pos.lat, TRACK.pos.lon]] : []; this.render(); }
+    } else if (m === 'clear') { TRACK.pts = TRACK.pos ? [[TRACK.pos.lat, TRACK.pos.lon]] : []; LIVE_STATE.reset = true; this.render(); }
   };
   MovingMap.prototype.setFlight = function (f) { this.flight = f; if (this.visible) this.render(); };
   MovingMap.prototype.show = function (on) {
