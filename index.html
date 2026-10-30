@@ -391,7 +391,7 @@ tbody tr.next td.id::after{content:' ◂ next';color:#00b8d4;font-size:10px;lett
 .appinfo{padding:8px 12px;border-bottom:1px solid var(--line);font:400 11.5px var(--f-mono);color:var(--muted);line-height:1.5}
 .appinfo b{color:var(--route);font-weight:600}
 .appinfo:empty{display:none}
-.sum{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;background:var(--line);border-radius:0 0 8px 8px;overflow:hidden}
+.sum{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1px;background:var(--line);border-radius:0 0 8px 8px;overflow:hidden}
 .sum div{background:var(--panel);padding:10px 12px;min-width:0}
 .sum .k{font:600 10px var(--f-body);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
 .sum .v{font:500 18px var(--f-mono);font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -632,10 +632,6 @@ tfoot td{font-weight:500;border-bottom:0;color:var(--muted)}
           <span class="hint" id="dbHint"></span>
         </div>
         <div class="sum">
-          <div><div class="k">Distance</div><div class="v" id="sDist">—</div></div>
-          <div><div class="k">ETE</div><div class="v" id="sEte">—</div></div>
-          <div><div class="k">Trip fuel</div><div class="v" id="sFuel">—</div></div>
-          <div><div class="k">Cruise</div><div class="v" id="sCrz">—</div></div>
           <div><div class="k">Max terrain</div><div class="v" id="sTer">—</div></div>
           <div><div class="k">Min clearance</div><div class="v" id="sClr">—</div></div>
         </div>
@@ -652,15 +648,11 @@ tfoot td{font-weight:500;border-bottom:0;color:var(--muted)}
         <div id="wxPanel"><div class="wxempty">Loading weather…</div></div>
       </section>
 
-      <section class="panel">
-        <div class="ph"><h2>Performance</h2></div>
-        <div class="set">
-          <label for="gs">Ground speed kt<input id="gs" type="number" min="40" max="700" step="5" value="300"></label>
-          <label for="burn">Burn lb/hr<input id="burn" type="number" min="0" max="30000" step="50" value="1200"></label>
-          <label for="crz">Cruise ft<input id="crz" type="number" min="500" max="51000" step="500" value="24000"></label>
-        </div>
-        <div class="routestr"><code id="routeStr">—</code></div>
-      </section>
+      <!-- kept for the route math; the Plan tab fills these in -->
+      <div hidden>
+        <input id="gs" type="number" value="300"><input id="burn" type="number" value="1200"><input id="crz" type="number" value="24000">
+        <code id="routeStr">—</code><span id="sDist"></span><span id="sEte"></span><span id="sFuel"></span><span id="sCrz"></span>
+      </div>
 
       <section class="panel">
         <div class="ph"><h2>Nav log</h2><span class="hint">track °true · terrain = highest within 5 nm of leg</span></div>
@@ -2328,7 +2320,7 @@ addEventListener('hashchange',()=>showView(location.hash==='#map'?'map':'plan'))
 
 
 /* ---------- tell the person when a newer version is published ---------- */
-const APP_VERSION='2026-10-30.12';
+const APP_VERSION='2026-10-30.13';
 async function checkForUpdate(){try{const t=await (await fetch(location.pathname+'?v='+Date.now(),{cache:'no-store'})).text();
   const m=t.match(/APP_VERSION='([^']+)'/);if(m&&m[1]!==APP_VERSION)toast('A newer version of Route Desk is available',false,{label:'Reload',fn:()=>location.reload(),ms:60000});}catch(e){}}
 setTimeout(checkForUpdate,8000);setInterval(checkForUpdate,10*60000);
