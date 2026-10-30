@@ -81,6 +81,8 @@ input[type=file]{position:absolute;width:1px;height:1px;opacity:0;pointer-events
 .stagerow{display:grid;grid-template-columns:minmax(0,1fr) 440px;gap:14px;align-items:start}
 .stagerow .sidecol{max-height:calc(100vh - 104px);min-height:526px;overflow-y:auto;padding-right:2px;scrollbar-width:thin}
 .grid.one{grid-template-columns:minmax(0,1fr)}
+body.wide .wrap{max-width:none}
+@media (min-width:1900px){.stagerow{grid-template-columns:minmax(0,1fr) 480px}}
 @media (max-width:1200px){.stagerow{grid-template-columns:minmax(0,1fr)}.stagerow .sidecol{max-height:none;overflow:visible}}
 .stage #map{height:calc(100vh - 150px);min-height:480px}
 .mapwrap{position:relative}
@@ -2312,7 +2314,7 @@ $('pbTablet').onclick=sendToTablet;$('toTablet').onclick=sendToTablet;
 
 /* ---------- views ---------- */
 let pendingFit=null;
-function showView(v){const m=v==='map';$('planView').hidden=m;$('mapView').hidden=!m;
+function showView(v){const m=v==='map';document.body.classList.toggle('wide',m);$('planView').hidden=m;$('mapView').hidden=!m;
   $('tabPlan').classList.toggle('on',!m);$('tabMap').classList.toggle('on',m);$('tabPlan').setAttribute('aria-selected',String(!m));$('tabMap').setAttribute('aria-selected',String(m));
   if(location.hash!=='#'+v)history.replaceState(null,'','#'+v);
   if(m)setTimeout(()=>{map.invalidateSize();if(pendingFit){map.fitBounds(pendingFit,{padding:[40,40]});pendingFit=null;}updateLegLabels();drawProf();},30);else closePreview();}
@@ -2321,7 +2323,7 @@ addEventListener('hashchange',()=>showView(location.hash==='#map'?'map':'plan'))
 
 
 /* ---------- tell the person when a newer version is published ---------- */
-const APP_VERSION='2026-10-30.9';
+const APP_VERSION='2026-10-30.10';
 async function checkForUpdate(){try{const t=await (await fetch(location.pathname+'?v='+Date.now(),{cache:'no-store'})).text();
   const m=t.match(/APP_VERSION='([^']+)'/);if(m&&m[1]!==APP_VERSION)toast('A newer version of Route Desk is available',false,{label:'Reload',fn:()=>location.reload(),ms:60000});}catch(e){}}
 setTimeout(checkForUpdate,8000);setInterval(checkForUpdate,10*60000);
