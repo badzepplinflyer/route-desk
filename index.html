@@ -316,10 +316,10 @@ td.cons{color:var(--accent)}
 .livest.stale i{background:var(--warn)}
 .ph label.chk{display:inline-flex;align-items:center;gap:5px;font:600 11px var(--f-body);color:var(--muted);cursor:pointer}
 .ph label.chk input{accent-color:var(--accent)}
-.lvgrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;background:var(--line)}
+.lvgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(118px,1fr));gap:1px;background:var(--line)}
 .lvgrid div{background:var(--panel);padding:8px 10px;min-width:0}
 .lvgrid .k{font:600 9.5px var(--f-body);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
-.lvgrid .v{font:600 19px var(--f-mono);font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lvgrid .v{font:600 17px var(--f-mono);font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .lvgrid .v small{font-size:11px;color:var(--muted);margin-left:3px;font-weight:500}
 .lvgrid .v.up{color:#2f9e44}.lvgrid .v.dn{color:var(--warn)}
 .lvrow{display:flex;flex-wrap:wrap;gap:6px 16px;padding:8px 12px;font:500 12.5px var(--f-mono);color:var(--muted);border-top:1px solid var(--line)}
@@ -327,7 +327,6 @@ td.cons{color:var(--accent)}
 .lvphase{display:inline-block;font:700 10.5px var(--f-body);letter-spacing:.08em;text-transform:uppercase;color:#fff;background:var(--accent);padding:2px 7px;border-radius:3px}
 .lvmsg{padding:12px;color:var(--muted);font-size:13px;line-height:1.5}
 .lvmsg input{font:600 15px var(--f-mono);letter-spacing:.1em;text-transform:uppercase;width:130px;padding:5px 8px;border:1px solid var(--line);border-radius:5px;background:var(--bg);color:var(--ink);margin:6px 6px 0 0}
-@media (max-width:560px){.lvgrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .liveplane svg{display:block;filter:drop-shadow(0 1px 2px rgba(0,0,0,.6))}
 tbody tr.next{box-shadow:inset 3px 0 0 #00b8d4}
 tbody tr.next td.id::after{content:' ◂ next';color:#00b8d4;font-size:10px;letter-spacing:.06em}
@@ -2254,7 +2253,7 @@ addEventListener('hashchange',()=>showView(location.hash==='#map'?'map':'plan'))
 
 
 /* ---------- tell the person when a newer version is published ---------- */
-const APP_VERSION='2026-10-30.2';
+const APP_VERSION='2026-10-30.3';
 async function checkForUpdate(){try{const t=await (await fetch(location.pathname+'?v='+Date.now(),{cache:'no-store'})).text();
   const m=t.match(/APP_VERSION='([^']+)'/);if(m&&m[1]!==APP_VERSION)toast('A newer version of Route Desk is available',false,{label:'Reload',fn:()=>location.reload(),ms:60000});}catch(e){}}
 setTimeout(checkForUpdate,8000);setInterval(checkForUpdate,10*60000);
@@ -2413,7 +2412,7 @@ function renderLive(){
   body.innerHTML=`<div class="lvgrid">
     ${cell('IAS',f(p.ias),'kt')}${cell('Ground speed',f(gs),'kt')}${cell(p.mach>0.4?'Mach':'TAS',p.mach>0.4?f(p.mach,2):f(p.tas),p.mach>0.4?'':'kt')}${cell('Heading',p.hdgm!=null?String(Math.round(p.hdgm)%360||360).padStart(3,'0')+'°':'—','mag')}
     ${cell('Altitude',p.alt>=18000?'FL'+String(Math.round(p.alt/100)).padStart(3,'0'):f(p.alt),p.alt>=18000?'':'ft')}${cell('Above ground',f(p.agl),'ft')}${cell('Vertical speed',(p.vs>0?'+':'')+f(Math.round((p.vs||0)/10)*10),'fpm',vsCls)}${cell('Fuel',f(p.fuel),'lb')}
-    ${cell('To '+esc(plan?plan.dstId:'dest'),pr?f(pr.remain):'—','nm')}${cell('ETE',ete!=null?hm(ete):'—','')}${cell('ETA',eta,'')}${cell('Next fix',pr&&pr.next?esc(pr.next.ident):pr&&pr.off?'Off route':'—',pr&&pr.next?f(pr.toNext,1)+' nm':'')}
+    ${cell('To '+esc(plan?plan.dstId:'dest'),pr?f(pr.remain):'—','nm')}${cell('ETE',ete!=null?hm(ete):'—','')}${cell('ETA',eta,'')}${cell('Next fix'+(pr&&pr.next?' · '+f(pr.toNext,1)+' nm':''),pr&&pr.next?esc(pr.next.ident):pr&&pr.off?'Off route':'—','')}
   </div>
   <div class="lvrow"><span class="lvphase">${esc(livePhase(p))}</span>
     <span>Wind <b>${p.wspd!=null?String(Math.round(p.wdir)%360||360).padStart(3,'0')+'° / '+Math.round(p.wspd)+' kt':'—'}</b></span>
