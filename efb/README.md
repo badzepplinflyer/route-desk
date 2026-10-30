@@ -8,16 +8,13 @@ and the aircraft's avionics through the sim's own route API (`FlightPlanRouteMan
 1. Download `downloads/routedesk-efb.zip` (or the "Download it" link on the website).
 2. Unzip it so the folder `routedesk-efb` sits directly inside your MSFS 2024 **Community** folder.
 3. Restart the sim, start a flight, open the tablet and pick **Route Desk**.
-4. On the website press **Send to tablet**. The first time, enter the 8-character code shown on the
-   tablet and a fine-grained GitHub token (Only select repositories → route-desk, Contents: Read and write).
-   Both stay in that browser.
+4. On the website press **Send to tablet** and enter the 8-character code shown on the tablet (once).
 
 ## How flights travel
-The website writes the flight to `tablet/<tablet code>.json` on the `tablet` branch of this repository.
-The tablet reads it through the GitHub API when the app opens and on **Check now** (GitHub allows 60 of
-these per hour without signing in), and from raw.githubusercontent.com every 15 seconds in the background
-(no hourly limit, but GitHub can serve a copy up to 5 minutes old). The repository is public, so the
-latest flight sent to each tablet code is visible to anyone who looks.
+The website stores the flight on the Route Desk relay (`relay/worker.js`, a Cloudflare Worker with
+Workers KV) under the tablet code. The tablet checks the relay every 5 seconds while the app is open.
+Flights are kept for 24 hours. No account is needed to send or receive. Anyone who knows a tablet code
+could send a flight to it, so "Make a new tablet code" on the tablet replaces it if needed.
 
 ## Works with
 Aircraft that use the sim's own (Working Title) avionics: the default airliners and GA.

@@ -10,9 +10,9 @@
     window.msfssdk   @microsoft/msfs-sdk (FSComponent, DisplayComponent, Subject,
                      FlightPlanRouteManager, FlightPlanRouteUtils, ICAO)
 
-  Flights travel through a mailbox in the Route Desk GitHub repository: the website writes
-  tablet/<tablet code>.json on the "tablet" branch, and this app reads it (GitHub API when the
-  app opens or on "Check now", the raw file server in the background).
+  Flights travel through the Route Desk relay (a small Cloudflare Worker): the website stores
+  the flight under the tablet code shown in this app, and this app checks for it every few
+  seconds while it is open. Flights are kept for 24 hours.
 
   Structure follows the MIT-licensed msfs-efb-iframe sample by Rafael Coelho
   (https://github.com/RCCSilva/msfs-efb-iframe).
@@ -24,10 +24,8 @@
   var INTERNAL_NAME = 'RouteDesk';            // must match folder + file name
   var VERSION = '1.0.0';
   var EFB_API_VERSION = '1.0.3';
-  var REPO = 'badzepplinflyer/route-desk';     // owner/repo that hosts the mailbox
-  var BRANCH = 'tablet';
-  var RAW_POLL_MS = 15000;                      // raw.githubusercontent.com: no hourly limit, may lag up to 5 min
-  var API_POLL_MS = 120000;                     // api.github.com: 60 unauthenticated requests per hour
+  var RELAY = 'https://routedesk-relay.scjjohn2005.workers.dev';
+  var POLL_MS = 5000;
   var CODE_KEY = 'ROUTEDESK_TABLET_CODE';
   var BASE_URL = 'coui://html_ui/efb_ui/efb_apps/' + INTERNAL_NAME;
   var STYLE_ID = 'routedesk-efb-style';
@@ -150,9 +148,7 @@
         this.flight = null;
         this.lastKey = '';
         this.lastCheck = 0;
-        this.rawTimer = null;
-        this.apiTimer = null;
-        this.rateLimited = 0;
+        this.pollTimer = null;
         this.busy = false;
         this.destroyed = false;
         this.managerPromise = null;
@@ -168,46 +164,15 @@
       startPolling() {
         var self = this;
         this.stopPolling();
-        this.checkApi();
-        this.rawTimer = window.setInterval(function () { self.checkRaw(); }, RAW_POLL_MS);
-        this.apiTimer = window.setInterval(function () { if (!self.rateLimited || Date.now() > self.rateLimited) self.checkApi(); }, API_POLL_MS);
+        this.check();
+        this.pollTimer = window.setInterval(function () { self.check(); }, POLL_MS);
       }
-      stopPolling() {
-        if (this.rawTimer) { window.clearInterval(this.rawTimer); this.rawTimer = null; }
-        if (this.apiTimer) { window.clearInterval(this.apiTimer); this.apiTimer = null; }
-      }
-      mailPath() { return 'tablet/' + this.code + '.json'; }
+      stopPolling() { if (this.pollTimer) { window.clearInterval(this.pollTimer); this.pollTimer = null; } }
 
-      // Fresh read through the GitHub API (uses one of 60 unauthenticated requests per hour)
-      checkApi() {
+      check() {
         if (this.destroyed) return;
         var self = this, xhr = new XMLHttpRequest();
-        xhr.open('GET', 'https://api.github.com/repos/' + REPO + '/contents/' + this.mailPath() + '?ref=' + BRANCH + '&t=' + Date.now());
-        xhr.setRequestHeader('Accept', 'application/vnd.github+json');
-        xhr.timeout = 10000;
-        xhr.onreadystatechange = function () {
-          if (xhr.readyState !== 4 || self.destroyed) return;
-          self.lastCheck = Date.now();
-          if (xhr.status === 200) {
-            self.netOk = true;
-            try {
-              var j = JSON.parse(xhr.responseText);
-              var txt = decodeURIComponent(escape(atob(String(j.content || '').replace(/\s/g, ''))));
-              self.receive(txt);
-            } catch (e) { console.warn(LOG + 'could not read the mailbox file', e); }
-          } else if (xhr.status === 404) { self.netOk = true; }
-          else if (xhr.status === 403 || xhr.status === 429) { self.netOk = true; self.rateLimited = Date.now() + 15 * 60000; self.checkRaw(); }
-          else { self.netOk = false; self.checkRaw(); }
-          self.drawStatusOnly();
-        };
-        try { xhr.send(); } catch (e) { this.netOk = false; this.checkRaw(); }
-      }
-
-      // Background read from the raw file server (no hourly limit; GitHub may cache it for a few minutes)
-      checkRaw() {
-        if (this.destroyed) return;
-        var self = this, xhr = new XMLHttpRequest();
-        xhr.open('GET', 'https://raw.githubusercontent.com/' + REPO + '/' + BRANCH + '/' + this.mailPath() + '?t=' + Date.now());
+        xhr.open('GET', RELAY + '/flight/' + this.code + '?t=' + Date.now());
         xhr.timeout = 10000;
         xhr.onreadystatechange = function () {
           if (xhr.readyState !== 4 || self.destroyed) return;
@@ -268,7 +233,7 @@
         var st = root.querySelector('.rd-status'), chk = root.querySelector('.rd-check');
         if (st) { st.textContent = this.status || ''; st.className = 'rd-status' + (this.statusCls ? ' ' + this.statusCls : ''); }
         if (chk) {
-          chk.textContent = this.netOk === false ? 'Cannot reach GitHub right now. Retrying…' :
+          chk.textContent = this.netOk === false ? 'Cannot reach the Route Desk relay right now. Retrying…' :
             this.lastCheck ? 'Checked for new flights ' + new Date(this.lastCheck).toLocaleTimeString() : 'Checking for flights…';
         }
       }
@@ -280,7 +245,7 @@
           '<div class="rd-code">Tablet code<b>' + esc(c) + '</b></div></div><div class="rd-body">';
         if (!f) {
           h += '<div class="rd-card"><div class="rd-wait">No flight yet.<br>In Route Desk on your PC or phone, press <b style="letter-spacing:0">Send to tablet</b> and enter the code <b>' + esc(c) + '</b>.</div>' +
-            '<div class="rd-muted">This screen checks for new flights by itself. If one doesn\'t appear within a minute, tap Check now.</div>' +
+            '<div class="rd-muted">This screen checks for new flights every few seconds. Flights sent in the last 24 hours show up here.</div>' +
             '<div class="rd-btns" style="margin-top:12px"><div class="rd-btn" data-act="check">Check now</div></div>' +
             '<div class="rd-status"></div>' +
             '<div class="rd-muted rd-check"></div><div class="rd-muted"><span class="rd-link" data-act="newcode">Make a new tablet code</span></div></div>';
@@ -314,7 +279,7 @@
             return function () {
               var a = b.getAttribute('data-act');
               if (a === 'newcode') { self.code = newCode(); writeStore(CODE_KEY, self.code); self.flight = null; self.lastKey = ''; self.draw(); self.startPolling(); }
-              else if (a === 'check') { self.setStatus('Checking…', ''); self.checkApi(); self.checkRaw(); window.setTimeout(function () { if (self.status === 'Checking…') self.setStatus('', ''); }, 4000); }
+              else if (a === 'check') { self.setStatus('Checking…', ''); self.check(); window.setTimeout(function () { if (self.status === 'Checking…') self.setStatus('', ''); }, 3000); }
               else self.act(a);
             };
           })(btns[i]));
