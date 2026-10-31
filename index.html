@@ -2414,7 +2414,7 @@ addEventListener('hashchange',()=>showView(location.hash==='#map'?'map':'plan'))
 
 
 /* ---------- tell the person when a newer version is published ---------- */
-const APP_VERSION='2026-10-30.15';
+const APP_VERSION='2026-10-31.1';
 async function checkForUpdate(){try{const t=await (await fetch(location.pathname+'?v='+Date.now(),{cache:'no-store'})).text();
   const m=t.match(/APP_VERSION='([^']+)'/);if(m&&m[1]!==APP_VERSION)toast('A newer version of Route Desk is available',false,{label:'Reload',fn:()=>location.reload(),ms:60000});}catch(e){}}
 setTimeout(checkForUpdate,8000);setInterval(checkForUpdate,10*60000);
@@ -2724,8 +2724,8 @@ function setupDone(){const seen=tabletSeen(),code=getTabCode();
   let hasPlan=false;try{hasPlan=!!plan||JSON.parse(lsGet(STORE)||'[]').length>0;}catch(e){}
   return {inst:!!(seen||lsGet(HELP.instKey)),code:!!code,plan:hasPlan};}
 function helpState(){const d=setupDone(),seen=tabletSeen(),old=seen&&HELP.latest&&verCmp(seen.v,HELP.latest)<0;
-  $('helpDot').hidden=d.inst&&d.code&&d.plan&&!old;if(!$('help').hidden&&!$('hlpStart').hidden)renderSetup();}
-function renderSetup(){
+  $('helpDot').hidden=d.inst&&d.code&&d.plan&&!old;if(!$('help').hidden&&!$('hlpStart').hidden)renderHelpSetup();}
+function renderHelpSetup(){
   const d=setupDone(),seen=tabletSeen(),code=getTabCode(),fmt=c=>c?c.slice(0,4)+'-'+c.slice(4):'';
   const old=seen&&HELP.latest&&verCmp(seen.v,HELP.latest)<0,ver=HELP.latest?' '+HELP.latest:'';
   const step=(n,done,title,st,body)=>`<div class="hstep${done?' done':''}"><div class="hnum">${done?'✓':n}</div><div><h3>${title}</h3><div class="hst">${st}</div>${body}</div></div>`;
@@ -2760,15 +2760,15 @@ function renderSetup(){
     setTabCode(c);renderLive();checkConn();};
   $('hSave').onclick=save;hc.addEventListener('keydown',e=>{if(e.key==='Enter')save();});
   if($('hCheck'))$('hCheck').onclick=checkConn;
-  if($('hInst'))$('hInst').onchange=e=>{if(e.target.checked)lsSet(HELP.instKey,'1');else try{localStorage.removeItem(HELP.instKey);}catch(x){}renderSetup();helpState();};
+  if($('hInst'))$('hInst').onchange=e=>{if(e.target.checked)lsSet(HELP.instKey,'1');else try{localStorage.removeItem(HELP.instKey);}catch(x){}renderHelpSetup();helpState();};
   $('hPlan').onclick=()=>{closeHelp();showView('plan');setTimeout(()=>{$('fDep').focus();$('fDep').scrollIntoView({block:'center'});},60);};
   $('help').querySelectorAll('[data-copy]').forEach(b=>b.onclick=()=>{navigator.clipboard.writeText(b.dataset.copy).then(()=>toast('Copied. Paste it into the File Explorer address bar.'),()=>toast('Select the path and copy it with Ctrl+C.',true));});}
-async function checkConn(){const code=getTabCode();if(!code)return;HELP.conn='checking';renderSetup();
+async function checkConn(){const code=getTabCode();if(!code)return;HELP.conn='checking';renderHelpSetup();
   try{const r=await fetch(`${LIVE}/pos/${code}?since=999999999`,{cache:'no-store'});const j=await r.json();
     HELP.conn=j.pos?{pos:j.pos,age:j.age}:'none';if(j.pos)noteTablet(j.pos);}catch(e){HELP.conn='error';}
-  renderSetup();helpState();}
+  renderHelpSetup();helpState();}
 function helpTab(t){$('help').querySelectorAll('[data-ht]').forEach(b=>b.classList.toggle('on',b.dataset.ht===t));
-  $('hlpStart').hidden=t!=='start';$('hlpFaq').hidden=t!=='faq';if(t==='start')renderSetup();}
+  $('hlpStart').hidden=t!=='start';$('hlpFaq').hidden=t!=='faq';if(t==='start')renderHelpSetup();}
 let helpReturn=null;
 function openHelp(t,faq){helpReturn=document.activeElement;$('help').hidden=false;
   if(!t){const d=setupDone();t=d.inst&&d.code&&d.plan?'faq':'start';}
